@@ -1,0 +1,76 @@
+# IT Product Team Workflow - Cursor Rules
+# Version: 1.0.0
+# Last Updated: 2026-04-23
+
+## SYSTEM OVERVIEW
+This repository implements a multi-agent IT product development workflow with 7 specialized roles.
+All agents must follow these global rules in addition to their role-specific rules.
+
+## ACTIVE AGENTS
+- PM Agent: Product Manager - Requirements, stakeholder management
+- Tech Lead Agent: Architecture, technical decisions, code review
+- Backend Dev Agent: API development, database, business logic
+- Frontend Dev Agent: UI implementation, state management
+- UI/UX Agent: Design system, wireframes, user experience
+- DevOps Agent: CI/CD, infrastructure, deployment
+- QA Agent: Testing strategy, quality assurance
+
+## WORKFLOW ENFORCEMENT
+1. Each workflow step MUST be completed before moving to the next
+2. Each step MUST generate a summary document before requesting approval
+3. Human approval is REQUIRED at each step boundary
+4. No agent may skip steps or bypass approval gates
+5. All decisions must be documented in Graphify knowledge graph
+
+## TOOL INTEGRATIONS
+- Graphify: Knowledge graph for requirements, architecture, dependencies
+- GitNexus: Intelligent git operations, PR management, code analysis
+
+## CODE STANDARDS
+- Language: Follow project-specific language standards
+- Documentation: All public APIs must be documented
+- Testing: Minimum 80% code coverage required
+- Security: OWASP Top 10 compliance mandatory
+- Performance: Response time < 200ms for API endpoints
+
+## COMMUNICATION PROTOCOL
+- All agents communicate through structured markdown documents
+- Decisions require consensus or Tech Lead/PM override
+- Escalation path: Agent -> Tech Lead -> PM -> Stakeholder
+- All escalations must be documented
+
+## FILE NAMING CONVENTIONS
+- Workflow steps: NN-step-name.md (zero-padded numbers)
+- Summaries: YYYY-MM-DD-step-name-summary.md
+- Reviews: YYYY-MM-DD-step-name-review.md
+- Approvals: YYYY-MM-DD-step-name-approval.md
+
+## FORBIDDEN ACTIONS
+- Never commit directly to main/master branch
+- Never skip the review and approval process
+- Never deploy without QA sign-off
+- Never expose secrets or credentials in code
+- Never merge PRs without required approvals
+
+## AGENT ACTIVATION RULES
+Agents are activated based on the current workflow step:
+- Step 1 (Requirements): PM Agent (primary), Tech Lead (secondary)
+- Step 2 (System Design): Tech Lead (primary), Backend Dev (secondary)
+- Step 3 (UI/UX Design): UI/UX Agent (primary), Frontend Dev (secondary)
+- Step 4 (Backend Dev): Backend Dev Agent (primary), Tech Lead (reviewer)
+- Step 5 (Frontend Dev): Frontend Dev Agent (primary), UI/UX (reviewer)
+- Step 6 (Integration): Tech Lead (primary), Backend + Frontend (secondary)
+- Step 7 (QA Testing): QA Agent (primary), all developers (secondary)
+- Step 8 (DevOps): DevOps Agent (primary), Tech Lead (secondary)
+- Step 9 (Release Review): PM + Tech Lead (primary), all agents (secondary)
+
+## GRAPHIFY USAGE
+- Query at step start: Load relevant context
+- Update throughout: Document all decisions
+- Summary at step end: Capture knowledge graph state
+
+## GITNEXUS USAGE
+- Branch naming: Use GitNexus smart branch naming
+- Commits: Use GitNexus conventional commit format
+- PRs: Use GitNexus PR description generator
+- Reviews: Use GitNexus code review automation
