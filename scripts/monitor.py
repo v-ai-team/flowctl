@@ -414,7 +414,7 @@ def main():
     threading.Thread(target=_key_reader, daemon=True).start()
 
     if USE_RICH:
-        with Live(render_rich(live_mode=True), refresh_per_second=4, screen=True, console=Console()) as live:
+        with Live(render_rich(live_mode=True), refresh_per_second=4, screen=True, console=Console(force_terminal=True)) as live:
             while not _state["quit"]:
                 time.sleep(0.1)
                 if not _state["paused"] or _state["force_refresh"]:
