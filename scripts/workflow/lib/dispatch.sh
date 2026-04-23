@@ -131,37 +131,111 @@ kickoff_rel = str(kickoff_candidates[0].relative_to(repo_root)) if kickoff_candi
 plan_candidates = sorted((repo_root / "plans").glob("*/plan.md"))
 latest_plan = str(plan_candidates[-1].relative_to(repo_root)) if plan_candidates else ""
 
+digest_path = dispatch_dir / "context-digest.md"
+digest_rel = str(digest_path.relative_to(repo_root)) if digest_path.exists() else ""
+
+# Code steps need GitNexus architecture query
+code_steps = {"4", "5", "6", "7", "8"}
+is_code_step = step in code_steps
+
 for role in roles:
     brief_path = dispatch_dir / f"{role}-brief.md"
     report_path = reports_dir / f"{role}-report.md"
-    brief = f"""# Worker Brief — Step {step} ({step_name})
+    merc_dir = dispatch_dir / "mercenaries"
+    merc_outputs = sorted(merc_dir.glob("*-output.md")) if merc_dir.exists() else []
 
-Role: @{role}
-Current step: {step}
-Workspace: {repo_root}
+    brief = f"""# Worker Brief — @{role} — Step {step}: {step_name}
 
-## Input bắt buộc
-- workflow-state.json
+## 🔍 Context Loading — MANDATORY (thực hiện theo thứ tự, dừng khi đủ thông tin)
+
+### Layer 1 — Graphify queries (cheapest, ~300 tokens each)
+```
+graphify_query("step:{int(step)-1}:outcomes")
+graphify_query("project:constraints")
+graphify_query("open:blockers:{role}")
+graphify_query("aligned-plan:step:{step}")
+```
+
+### Layer 2 — GitNexus (chỉ dùng cho code tasks)
 """
-    if kickoff_rel:
-        brief += f"- {kickoff_rel}\n"
-    if latest_plan:
-        brief += f"- {latest_plan}\n"
+    if is_code_step:
+        brief += f"""```
+gitnexus_get_architecture()
+gitnexus_find_related("{role}")
+```
+"""
+    else:
+        brief += "*(Skip — non-code step)*\n"
+
     brief += f"""
-## Nhiệm vụ
-1. Thực hiện phần việc của role @{role} cho step hiện tại.
-2. Không chạm file ngoài scope role nếu không cần thiết.
-3. Ghi kết quả vào report file dưới đây.
+### Layer 3 — File reads (fallback, chỉ khi Layer 1+2 không đủ)
+"""
+    if digest_rel:
+        brief += f"- @{digest_rel} ← context digest (War Room output + prior decisions)\n"
+    if kickoff_rel:
+        brief += f"- @{kickoff_rel}\n"
+    if latest_plan:
+        brief += f"- @{latest_plan}\n"
+    if mout := [str(f.relative_to(repo_root)) for f in merc_outputs]:
+        brief += "\n### Mercenary Outputs (pre-researched, read these first)\n"
+        for mo in mout:
+            brief += f"- @{mo}\n"
 
-## Report output (bắt buộc)
-Ghi vào: {report_path.relative_to(repo_root)}
+    brief += f"""
+---
 
-Format khuyến nghị:
-- SUMMARY: ...
-- DELIVERABLE: relative/path/to/file
-- DECISION: ...
-- BLOCKER: ...
-- NEXT: ...
+## 📋 Nhiệm vụ của @{role}
+
+1. Load context via layers trên (Layer 1 → Layer 2 → Layer 3, dừng khi đủ)
+2. Thực hiện công việc scope của @{role} cho step {step}
+3. Mọi quyết định quan trọng → ghi vào report (DECISION section)
+4. Nếu bị block → ghi vào NEEDS_SPECIALIST hoặc BLOCKER (KHÔNG dừng workflow)
+5. Ghi kết quả vào report, update graph
+
+---
+
+## 📝 Report output — BẮT BUỘC
+
+Ghi vào: `{report_path.relative_to(repo_root)}`
+
+```markdown
+# Worker Report — @{role} — Step {step}: {step_name}
+
+## SUMMARY
+[2-3 câu tóm tắt công việc đã làm]
+
+## DELIVERABLES
+- DELIVERABLE: relative/path/to/file — mô tả
+
+## DECISIONS
+- DECISION: [quyết định + lý do ngắn gọn]
+
+## BLOCKERS
+- BLOCKER: [mô tả] / NONE
+
+## GRAPH_UPDATES (mandatory — chạy sau khi xong)
+```
+graphify_update_node("step:{step}:{role}:done", {{
+  deliverables: [...],
+  key_decisions: [...],
+  blockers: [...]
+}})
+```
+
+## NEEDS_SPECIALIST (optional — nếu cần mercenary)
+- type: researcher|security-auditor|ux-validator|tech-validator|data-analyst
+  query: "câu hỏi cụ thể cần research"
+  blocking: "task nào đang bị block"
+  priority: before|parallel|after
+
+## NEXT
+[Thông tin quan trọng PM cần biết để approve]
+```
+
+**Quy tắc bắt buộc:**
+- KHÔNG gọi `bash scripts/workflow.sh approve`
+- KHÔNG advance step — đây là quyền của PM
+- Nếu bị block → ghi BLOCKER + NEEDS_SPECIALIST, tiếp tục làm những gì có thể
 """
     brief_path.write_text(brief, encoding="utf-8")
 
@@ -608,5 +682,27 @@ PY
       [[ -n "$trace_result" ]] && echo -e "${CYAN}${trace_result}${NC}"
     fi
   done
-  echo -e "Kiểm tra nhanh: ${BOLD}bash scripts/workflow.sh summary${NC}\n"
+  echo -e "Kiểm tra nhanh: ${BOLD}bash scripts/workflow.sh summary${NC}"
+
+  # Scan for NEEDS_SPECIALIST requests → trigger Phase B if any
+  local merc_requests
+  merc_requests=$(wf_mercenary_scan "$step" 2>/dev/null || echo "[]")
+  local merc_count
+  merc_count=$(echo "$merc_requests" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+
+  if [[ "$merc_count" -gt 0 ]]; then
+    echo ""
+    echo -e "${YELLOW}${BOLD}⚡ PHASE B REQUIRED — $merc_count NEEDS_SPECIALIST request(s) detected${NC}"
+    echo -e "  Workers bị block cần mercenary support trước khi approve."
+    echo ""
+    echo "$merc_requests" | python3 -c "
+import json, sys
+for r in json.load(sys.stdin):
+    print(f'  @{r.get(\"requested_by\",\"?\")} needs: {r.get(\"type\",\"?\")} — {r.get(\"blocking\",\"?\")}')
+"
+    echo ""
+    echo -e "  Chạy: ${BOLD}bash scripts/workflow.sh mercenary spawn${NC}"
+    echo -e "  Sau đó re-spawn blocked workers với mercenary outputs injected."
+  fi
+  echo ""
 }

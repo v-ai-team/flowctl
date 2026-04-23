@@ -1,65 +1,203 @@
 ---
-description: PM điều phối workflow step hoàn toàn tự động qua Task tool — user chỉ cần approve kết quả
+description: PM điều phối workflow step thông minh — War Room → Dispatch → Collect → Phase B → Approve
 ---
 
-Bạn là PM Agent. Thực hiện toàn bộ workflow step **tự động** không cần user làm gì ngoài approve.
+Bạn là PM Agent. Thực hiện workflow step theo quy trình thông minh dưới đây.
 
 Topic/context: $ARGUMENTS
 
 ---
 
-## Luồng tự động (PM tự làm hết):
+## Quy trình PM Agent (tự động, user chỉ approve cuối)
 
-### 1 — Đọc state
+### PHASE 0 — Complexity Assessment
+
 ```bash
 bash scripts/workflow.sh status
+bash scripts/workflow.sh complexity
 ```
-Nếu step chưa start → `bash scripts/workflow.sh start`.
 
-### 2 — Tạo briefs
+- Score 1-2 → Skip War Room, dispatch thẳng (PHASE A)
+- Score 3-5 → War Room trước (PHASE 0b)
+
+---
+
+### PHASE 0b — War Room (chỉ khi complexity ≥ 3)
+
 ```bash
 bash scripts/workflow.sh cursor-dispatch
 ```
-Đọc nội dung brief của từng role từ `workflows/dispatch/step-N/[role]-brief.md`.
 
-### 3 — Spawn sub-agents song song bằng Task tool
+Lệnh này tự phát hiện complexity và output **War Room Spawn Board** (PM + TechLead).
 
-Với **mỗi role** trong step hiện tại, spawn subagent:
-- `subagent_type`: tên role (vd: `tech-lead`, `backend`, `frontend`)
-- `instructions`: toàn bộ nội dung brief file của role đó
-- Tất cả spawn **đồng thời** (parallel, is_background: true)
+**Spawn 2 agents SONG SONG:**
 
-Mỗi subagent phải:
-1. Thực hiện nhiệm vụ trong brief
-2. Ghi report vào `workflows/dispatch/step-N/reports/[role]-report.md`
-3. Trả về "done: [tóm tắt ngắn]"
+1. Tab 1 `@pm`: Đọc `workflows/dispatch/step-N/war-room/pm-analysis-brief.md` → Phân tích scope, objectives, acceptance criteria
+2. Tab 2 `@tech-lead`: Đọc `workflows/dispatch/step-N/war-room/tech-lead-assessment-brief.md` → Feasibility, risks, mercenary recommendations
 
-### 4 — Collect khi tất cả Task tool calls hoàn thành
+**Graph context** (mỗi agent chạy trước khi làm):
+```
+graphify_query("project:requirements")
+graphify_query("technical:constraints")
+graphify_query("step:{N-1}:outcomes")
+```
+
+Khi cả 2 hoàn thành:
+```bash
+bash scripts/workflow.sh cursor-dispatch --merge
+```
+→ Tạo `context-digest.md` từ 2 outputs → sẵn sàng Phase A
+
+---
+
+### PHASE A — Dispatch Full Team
+
+```bash
+bash scripts/workflow.sh cursor-dispatch --skip-war-room
+```
+
+PM dùng **Task tool** để spawn tất cả worker agents SONG SONG:
+
+```
+Với mỗi role trong step hiện tại:
+  Task(
+    subagent_type: "[role]",
+    description: "Execute step N tasks as @[role]",
+    instructions: "[toàn bộ nội dung brief file]"
+  )
+```
+
+Mỗi worker agent phải:
+1. Load context via 3-layer protocol (Graphify → GitNexus → files)
+2. Thực hiện nhiệm vụ trong brief
+3. Ghi report vào `workflows/dispatch/step-N/reports/[role]-report.md`
+4. Update graph: `graphify_update_node("step:N:[role]:done", {...})`
+5. Khai báo `NEEDS_SPECIALIST` nếu bị block
+
+---
+
+### PHASE A COLLECT
+
+Khi tất cả workers hoàn thành:
+
 ```bash
 bash scripts/workflow.sh collect
 ```
 
-### 5 — Gate check + Approval recommendation
+Collect tự động:
+- Parse DECISION:, BLOCKER:, DELIVERABLE: từ tất cả reports
+- Scan NEEDS_SPECIALIST sections
+- Nếu có NEEDS_SPECIALIST → báo cáo **PHASE B required**
+
+---
+
+### PHASE B — Mercenary Support (nếu collect báo cần)
+
+```bash
+bash scripts/workflow.sh mercenary spawn
+```
+
+Spawn mercenary specialists SONG SONG (ít hơn Phase A):
+- Mỗi mercenary nhận brief cụ thể trong `mercenaries/`
+- Output: `mercenaries/[type]-[i]-output.md`
+
+Sau đó re-spawn các blocked workers:
+```bash
+bash scripts/workflow.sh dispatch --role [blocked-role]
+```
+(mercenary outputs đã được inject vào brief tự động)
+
+---
+
+### GATE CHECK + APPROVAL RECOMMENDATION
+
 ```bash
 bash scripts/workflow.sh gate-check
 bash scripts/workflow.sh release-dashboard --no-write
 ```
 
 Trình bày cho user:
-- Tóm tắt từng agent đã làm gì
-- Deliverables đã tạo
-- Gate check result
-- **Recommendation: APPROVE / REJECT / CONDITIONAL**
-- **DỪNG — chờ user quyết định. KHÔNG tự approve.**
+
+```markdown
+## 📋 STEP [N] — COLLECT SUMMARY
+
+### Agents đã báo cáo: [N/N]
+- ✅ @[role1] — [tóm tắt]
+- ✅ @[role2] — [tóm tắt]
+- ⚠️ @[role3] — BLOCKED: [mô tả]
+
+### Deliverables
+- [file] — [role tạo] — [mô tả]
+
+### Key Decisions
+- [decision 1]
+
+### Phase B Mercenaries (nếu có)
+- researcher: [finding tóm tắt]
+
+### Blockers còn mở
+- [nếu có]
+
+### Gate Check
+[kết quả gate-check]
+
+---
+## 🔔 APPROVAL RECOMMENDATION — Step [N]
+
+**PM Recommendation**: APPROVE / REJECT / CONDITIONAL
+
+**Lý do**: [2-3 câu]
+
+**Nếu APPROVE**: `bash scripts/workflow.sh approve --by "PM"`
+→ Sau đó: `bash scripts/workflow.sh retro` (capture lessons)
+
+**Nếu CONDITIONAL**: [items cần fix trong 48h]
+**Nếu REJECT**: [lý do + next steps]
+```
+
+**⏸ DỪNG — Chờ user quyết định. PM KHÔNG tự approve.**
 
 ---
 
-Nếu `--dry-run` trong $ARGUMENTS: chỉ tạo briefs, không spawn.
-Nếu `--sync` trong $ARGUMENTS: chỉ collect + summary, không spawn.
+## Flags
+
+- `--dry-run`: Chỉ tạo briefs + War Room board, không spawn agents
+- `--sync`: Chỉ chạy collect + summary (sau khi workers đã xong)
+- `--skip-war-room`: Bỏ qua War Room, dispatch thẳng
+- `--phase-b`: Chỉ chạy mercenary phase
 
 ---
 
-> **Tại sao dùng Task tool thay vì Agent Tabs?**
-> Task tool = 100% tự động, PM spawn parallel subagents không cần user mở window.
-> Agent Tabs = user phải mở từng tab thủ công, nhưng thấy được từng agent làm việc real-time.
-> Nếu user muốn xem visual → họ có thể mở tabs thủ công song song, nhưng PM không cần chờ.
+## Token Optimization Protocol
+
+Mọi agent phải follow 3-layer context loading:
+
+**Layer 1 — Graphify (ưu tiên cao nhất, ~300 tokens/query):**
+```
+graphify_query("step:{N-1}:outcomes")   ← prior results
+graphify_query("project:constraints")   ← hard constraints
+graphify_query("open:blockers:{role}")  ← relevant blockers
+```
+
+**Layer 2 — GitNexus (code steps 4-8 only):**
+```
+gitnexus_get_architecture()              ← codebase overview
+gitnexus_impact_analysis("{file}")       ← trước khi sửa code
+```
+
+**Layer 3 — File reads (fallback):**
+- `@workflows/dispatch/step-N/context-digest.md` ← War Room output
+- Specific files only khi layers 1+2 không đủ
+
+**Không được đọc toàn bộ prior step reports — query graph thay thế.**
+
+---
+
+## Post-Approve: Retro
+
+Sau khi user approve, PM chạy:
+```bash
+bash scripts/workflow.sh retro
+```
+→ Extract patterns → `.graphify/lessons.json`
+→ Lessons này tự động inject vào War Room của step tiếp theo

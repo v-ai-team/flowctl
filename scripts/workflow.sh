@@ -54,6 +54,14 @@ source "$LIB_DIR/budget.sh"
 # shellcheck source=/dev/null
 source "$LIB_DIR/dispatch.sh"
 # shellcheck source=/dev/null
+source "$LIB_DIR/complexity.sh"
+# shellcheck source=/dev/null
+source "$LIB_DIR/war_room.sh"
+# shellcheck source=/dev/null
+source "$LIB_DIR/mercenary.sh"
+# shellcheck source=/dev/null
+source "$LIB_DIR/retro.sh"
+# shellcheck source=/dev/null
 source "$LIB_DIR/cursor_dispatch.sh"
 # shellcheck source=/dev/null
 source "$LIB_DIR/orchestration.sh"
@@ -381,7 +389,7 @@ CMD="${1:-status}"
 shift || true
 
 case "$CMD" in
-  init|start|gate-check|approve|reject|conditional|blocker|decision|dispatch|cursor-dispatch|collect|team|reset|brainstorm|release-dashboard)
+  init|start|gate-check|approve|reject|conditional|blocker|decision|dispatch|cursor-dispatch|collect|team|reset|brainstorm|release-dashboard|war-room|mercenary|retro|complexity)
     wf_acquire_workflow_lock
     ;;
   *)
@@ -408,6 +416,19 @@ case "$CMD" in
   dispatch)        cmd_dispatch "$@" ;;
   cursor-dispatch|cd) cmd_cursor_dispatch "$@" ;;
   collect)         cmd_collect ;;
+  war-room|wr)
+    SUBCMD="${1:-start}"; shift || true
+    case "$SUBCMD" in
+      merge)  cmd_war_room_merge ;;
+      *)      cmd_war_room ;;
+    esac
+    ;;
+  mercenary|merc)
+    SUBCMD="${1:-scan}"; shift || true
+    cmd_mercenary "$SUBCMD" "$@"
+    ;;
+  retro)        cmd_retro "$@" ;;
+  complexity)   cmd_complexity ;;
   team)         cmd_team "$@" ;;
   brainstorm|bs) cmd_brainstorm "$@" ;;
   summary|sum)  cmd_summary ;;
@@ -419,6 +440,13 @@ case "$CMD" in
     echo -e "  init --project \"Name\"  Khởi tạo dự án mới"
     echo -e "  status                 Xem trạng thái"
     echo -e "  start                  Bắt đầu step hiện tại"
+    echo -e "  complexity             Đánh giá complexity score của step hiện tại"
+    echo -e "  war-room [merge]       Phase 0: PM + TechLead align (complexity-gated)"
+    echo -e "  cursor-dispatch [cd] [--skip-war-room] [--merge]"
+    echo -e "                         Phase A: Tạo briefs + Spawn Board (auto War Room nếu cần)"
+    echo -e "  collect                Phase A collect: gom reports + detect NEEDS_SPECIALIST"
+    echo -e "  mercenary [scan|spawn] Phase B: Scan/spawn mercenary specialists"
+    echo -e "  retro [step]           Post-approve: extract lessons → .graphify/lessons.json"
     echo -e "  gate-check             Kiểm tra QA gate cho step hiện tại"
     echo -e "  approve [--by Name] [--skip-gate]"
     echo -e "                         Approve và advance (default có QA gate)"
@@ -426,16 +454,13 @@ case "$CMD" in
     echo -e "  blocker add \"desc\"     Thêm blocker"
     echo -e "  blocker resolve <id>   Resolve blocker"
     echo -e "  decision \"desc\"        Ghi nhận quyết định"
-    echo -e "  cursor-dispatch [cd]   Cursor-native: tạo briefs + Spawn Board cho Agent Tabs"
-    echo -e "  dispatch [--launch|--headless] [--trust] [--dry-run] [--force-run] [--max-retries N] [--role name] [--budget-override-reason text]"
-    echo -e "                         Tạo worker briefs + chạy workers (CLI/automation)"
-    echo -e "  collect                Gom worker reports vào workflow-state"
+    echo -e "  dispatch [--dry-run|--headless] [--role name]"
+    echo -e "                         Tạo worker briefs (low-level, dùng cursor-dispatch thay)"
     echo -e "  team <start|delegate|sync|status|monitor|recover|budget-reset|run>"
     echo -e "                         PM-only orchestration cho sub-agents"
-    echo -e "  brainstorm [topic] [--project Name] [--sync] [--wait N] [--dry-run]"
-    echo -e "                         One-shot auto init + delegate theo current step"
+    echo -e "  brainstorm [topic]     One-shot auto init + delegate theo current step"
     echo -e "  summary                Step summary"
-    echo -e "  release-dashboard      PM release summary (gate/evidence/traceability/budget)"
+    echo -e "  release-dashboard      PM release summary"
     echo -e "  history                Lịch sử approvals"
     echo -e "  reset <step>           Reset về step cụ thể\n"
     ;;
