@@ -413,31 +413,29 @@ def main():
 
     threading.Thread(target=_key_reader, daemon=True).start()
 
+    def _render_loop(draw_fn):
+        last_render = 0.0
+        # Enter alternate screen manually — bypasses Rich's terminal detection
+        sys.stdout.write("\033[?1049h\033[2J\033[H"); sys.stdout.flush()
+        try:
+            while not _state["quit"]:
+                now = time.time()
+                should = (not _state["paused"] or _state["force_refresh"]) and \
+                         (now - last_render >= _interval_ref[0] or _state["force_refresh"])
+                if should:
+                    _state["force_refresh"] = False
+                    last_render = now
+                    sys.stdout.write("\033[2J\033[H"); sys.stdout.flush()
+                    draw_fn()
+                time.sleep(0.05)
+        finally:
+            sys.stdout.write("\033[?1049l"); sys.stdout.flush()  # restore normal screen
+
     if USE_RICH:
         console = Console(force_terminal=True)
-        last_render = 0.0
-        while not _state["quit"]:
-            now = time.time()
-            should = (not _state["paused"] or _state["force_refresh"]) and \
-                     (now - last_render >= _interval_ref[0] or _state["force_refresh"])
-            if should:
-                _state["force_refresh"] = False
-                last_render = now
-                sys.stdout.write("\033[2J\033[H"); sys.stdout.flush()
-                console.print(render_rich())
-            time.sleep(0.05)
+        _render_loop(lambda: console.print(render_rich()))
     else:
-        last_render = 0.0
-        while not _state["quit"]:
-            now = time.time()
-            should = (not _state["paused"] or _state["force_refresh"]) and \
-                     (now - last_render >= _interval_ref[0] or _state["force_refresh"])
-            if should:
-                _state["force_refresh"] = False
-                last_render = now
-                render_ansi()
-            time.sleep(0.05)
-            time.sleep(0.1)
+        _render_loop(render_ansi)
 
 if __name__ == "__main__":
     main()
