@@ -9,10 +9,19 @@ $ARGUMENTS
 
 Execution rules:
 1. Treat `$ARGUMENTS` as brainstorm topic.
-2. Run this command directly:
-   `bash scripts/workflow.sh brainstorm "$ARGUMENTS"`
-3. If user includes `--dry-run`, `--sync`, `--wait`, or `--project`, pass them through unchanged.
-4. After execution, report:
+2. Unless user explicitly asks dry-run, execute autonomous flow in this order:
+   - `bash scripts/workflow.sh brainstorm --headless "$ARGUMENTS"`
+   - Monitor loop (max 10 minutes): run `bash scripts/workflow.sh team monitor --stale-seconds 300` every 20-30s.
+   - If monitor shows all roles are `done` OR no `running/stale` roles remain, run:
+     - `bash scripts/workflow.sh team sync`
+     - `bash scripts/workflow.sh release-dashboard --no-write`
+     - `bash scripts/workflow.sh gate-check`
+3. Recovery logic during loop:
+   - If breaker is `open`/`half-open`: run `bash scripts/workflow.sh team budget-reset --reason "manual recovery from workflow-conduct"`
+   - If a role is `blocked` and retry budget remains: run `bash scripts/workflow.sh team recover --role <role> --mode retry`
+   - If a role is `stale`: run `bash scripts/workflow.sh team recover --role <role> --mode resume`
+4. If user includes `--dry-run`, `--sync`, `--wait`, or `--project`, pass them through unchanged and skip autonomous loop.
+5. After execution, report:
    - Current step and step name
    - Spawned roles
    - Dispatch path and expected reports path
@@ -20,4 +29,4 @@ Execution rules:
    - Next suggested action (`team sync`, `release-dashboard`, `gate-check`, or `approve`)
    - If breaker is not `closed`, include recovery hint:
      `bash scripts/workflow.sh team budget-reset --reason "manual recovery"`
-5. Do not auto-approve any step.
+6. Do not auto-approve any step unless user explicitly says auto-approve.
