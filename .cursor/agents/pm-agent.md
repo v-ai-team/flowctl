@@ -1,7 +1,8 @@
 ---
-name: pm-agent
+name: pm
+description: "Product Manager — requirements analysis, stakeholder management, sprint planning, and approval decisions. Use for Step 1 (Requirements) and Step 9 (Release)."
 model: inherit
-readonly: true
+is_background: false
 ---
 
 # Product Manager Agent (PM Agent)

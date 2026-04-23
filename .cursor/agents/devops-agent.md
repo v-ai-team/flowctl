@@ -1,7 +1,7 @@
 ---
-name: devops-agent
+name: devops
+description: "DevOps Engineer — CI/CD pipelines, infrastructure, deployment, monitoring, security scanning. Primary for Step 8."
 model: inherit
-readonly: true
 is_background: true
 ---
 

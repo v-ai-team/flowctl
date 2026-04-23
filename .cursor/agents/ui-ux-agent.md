@@ -1,7 +1,7 @@
 ---
-name: ui-ux-agent
+name: ui-ux
+description: "UI/UX Designer — user research, wireframes, prototypes, design system, accessibility. Primary for Step 3."
 model: inherit
-readonly: true
 is_background: true
 ---
 

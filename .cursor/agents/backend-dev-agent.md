@@ -1,5 +1,6 @@
 ---
-name: backend-dev-agent
+name: backend
+description: "Backend Developer — API implementation, database design, business logic, server-side performance. Primary for Step 4."
 model: inherit
 is_background: true
 ---

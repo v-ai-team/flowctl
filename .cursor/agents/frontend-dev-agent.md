@@ -1,7 +1,7 @@
 ---
-name: frontend-dev-agent
+name: frontend
+description: "Frontend Developer — UI implementation, state management, component architecture, web performance. Primary for Step 5."
 model: inherit
-readonly: true
 is_background: true
 ---
 

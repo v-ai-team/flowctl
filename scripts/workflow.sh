@@ -54,6 +54,8 @@ source "$LIB_DIR/budget.sh"
 # shellcheck source=/dev/null
 source "$LIB_DIR/dispatch.sh"
 # shellcheck source=/dev/null
+source "$LIB_DIR/cursor_dispatch.sh"
+# shellcheck source=/dev/null
 source "$LIB_DIR/orchestration.sh"
 # shellcheck source=/dev/null
 source "$LIB_DIR/reporting.sh"
@@ -379,7 +381,7 @@ CMD="${1:-status}"
 shift || true
 
 case "$CMD" in
-  init|start|gate-check|approve|reject|conditional|blocker|decision|dispatch|collect|team|reset|brainstorm|release-dashboard)
+  init|start|gate-check|approve|reject|conditional|blocker|decision|dispatch|cursor-dispatch|collect|team|reset|brainstorm|release-dashboard)
     wf_acquire_workflow_lock
     ;;
   *)
@@ -403,8 +405,9 @@ case "$CMD" in
     esac
     ;;
   decision|d)   cmd_add_decision "$@" ;;
-  dispatch)     cmd_dispatch "$@" ;;
-  collect)      cmd_collect ;;
+  dispatch)        cmd_dispatch "$@" ;;
+  cursor-dispatch|cd) cmd_cursor_dispatch "$@" ;;
+  collect)         cmd_collect ;;
   team)         cmd_team "$@" ;;
   brainstorm|bs) cmd_brainstorm "$@" ;;
   summary|sum)  cmd_summary ;;
@@ -423,8 +426,9 @@ case "$CMD" in
     echo -e "  blocker add \"desc\"     Thêm blocker"
     echo -e "  blocker resolve <id>   Resolve blocker"
     echo -e "  decision \"desc\"        Ghi nhận quyết định"
+    echo -e "  cursor-dispatch [cd]   Cursor-native: tạo briefs + Spawn Board cho Agent Tabs"
     echo -e "  dispatch [--launch|--headless] [--trust] [--dry-run] [--force-run] [--max-retries N] [--role name] [--budget-override-reason text]"
-    echo -e "                         Tạo worker briefs + chạy workers"
+    echo -e "                         Tạo worker briefs + chạy workers (CLI/automation)"
     echo -e "  collect                Gom worker reports vào workflow-state"
     echo -e "  team <start|delegate|sync|status|monitor|recover|budget-reset|run>"
     echo -e "                         PM-only orchestration cho sub-agents"

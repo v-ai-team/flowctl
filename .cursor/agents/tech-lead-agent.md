@@ -1,7 +1,7 @@
 ---
-name: tech-lead-agent
+name: tech-lead
+description: "Tech Lead — system design, architecture decisions, code review, integration oversight. Primary for Steps 2, 6; reviewer for all dev steps."
 model: inherit
-readonly: true
 is_background: true
 ---
 
