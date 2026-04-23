@@ -414,17 +414,29 @@ def main():
     threading.Thread(target=_key_reader, daemon=True).start()
 
     if USE_RICH:
-        with Live(render_rich(live_mode=True), refresh_per_second=4, screen=True, console=Console(force_terminal=True)) as live:
-            while not _state["quit"]:
-                time.sleep(0.1)
-                if not _state["paused"] or _state["force_refresh"]:
-                    _state["force_refresh"] = False
-                    live.update(render_rich(live_mode=True))
-    else:
+        console = Console(force_terminal=True)
+        last_render = 0.0
         while not _state["quit"]:
-            if not _state["paused"] or _state["force_refresh"]:
+            now = time.time()
+            should = (not _state["paused"] or _state["force_refresh"]) and \
+                     (now - last_render >= _interval_ref[0] or _state["force_refresh"])
+            if should:
                 _state["force_refresh"] = False
+                last_render = now
+                sys.stdout.write("\033[2J\033[H"); sys.stdout.flush()
+                console.print(render_rich())
+            time.sleep(0.05)
+    else:
+        last_render = 0.0
+        while not _state["quit"]:
+            now = time.time()
+            should = (not _state["paused"] or _state["force_refresh"]) and \
+                     (now - last_render >= _interval_ref[0] or _state["force_refresh"])
+            if should:
+                _state["force_refresh"] = False
+                last_render = now
                 render_ansi()
+            time.sleep(0.05)
             time.sleep(0.1)
 
 if __name__ == "__main__":
