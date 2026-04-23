@@ -83,12 +83,16 @@ logs_dir = dispatch_dir / "logs"
 idem_path = Path("$IDEMPOTENCY_FILE")
 sessions_path = Path("$ROLE_SESSIONS_FILE")
 heartbeats_path = Path("$HEARTBEATS_FILE")
+budget_state_path = Path("$BUDGET_STATE_FILE")
+budget_policy_path = Path("$BUDGET_POLICY_FILE")
 stale_seconds = int("$stale_seconds")
 retry_delay_seconds = int("$retry_delay_seconds")
 now_ts = time.time()
 
 idem = json.loads(idem_path.read_text(encoding="utf-8")) if idem_path.exists() else {}
 sessions = json.loads(sessions_path.read_text(encoding="utf-8")) if sessions_path.exists() else {}
+budget_state = json.loads(budget_state_path.read_text(encoding="utf-8")) if budget_state_path.exists() else {}
+budget_policy = json.loads(budget_policy_path.read_text(encoding="utf-8")) if budget_policy_path.exists() else {}
 latest_hb_by_role = {}
 if heartbeats_path.exists():
     for line in heartbeats_path.read_text(encoding="utf-8").splitlines():
@@ -116,6 +120,15 @@ roles = []
 for role in [primary] + supports:
     if role and role not in roles:
         roles.append(role)
+
+defaults = (budget_policy.get("defaults", {}) if isinstance(budget_policy, dict) else {})
+run_caps = (defaults.get("run_caps", {}) if isinstance(defaults, dict) else {})
+max_tokens_total = max(1, int(run_caps.get("max_tokens_total", 100000)))
+max_runtime_total = max(1, int(run_caps.get("max_runtime_seconds", 3600)))
+max_cost_total = max(0.000001, float(run_caps.get("max_cost_usd", 5.0)))
+run_budget = budget_state.get("run", {}) if isinstance(budget_state, dict) else {}
+breaker = budget_state.get("breaker", {}) if isinstance(budget_state, dict) else {}
+role_budget_map = budget_state.get("roles", {}) if isinstance(budget_state, dict) else {}
 
 def role_status(role: str):
     key = f"step:{step}:role:{role}:mode:headless"
@@ -213,6 +226,10 @@ def role_status(role: str):
         next_action = "inspect-policy"
 
     chat_id = ((sessions.get("roles", {}) or {}).get(role, {}) or {}).get("chat_id", "")
+    budget_row = (role_budget_map.get(role, {}) if isinstance(role_budget_map, dict) else {})
+    role_tokens = int(budget_row.get("tokens_est", 0))
+    role_runtime = int(budget_row.get("runtime_seconds", 0))
+    role_cost = float(budget_row.get("cost_usd", 0.0))
     return {
         "role": role,
         "status": status,
@@ -225,6 +242,9 @@ def role_status(role: str):
         "next_action": next_action,
         "retry_budget": f"{attempt_count}/{max_retries}",
         "report": "yes" if has_report else "no",
+        "budget_tokens": role_tokens,
+        "budget_runtime": role_runtime,
+        "budget_cost": round(role_cost, 4),
     }
 
 rows = [role_status(r) for r in roles]
@@ -234,6 +254,20 @@ for row in rows:
 
 print(f"Step {step}: {step_obj.get('name','')}")
 print(f"Dispatch dir: {dispatch_dir.relative_to(repo_root)}")
+used_tokens = int(run_budget.get("consumed_tokens_est", 0))
+used_runtime = int(run_budget.get("consumed_runtime_seconds", 0))
+used_cost = float(run_budget.get("consumed_cost_usd", 0.0))
+eta_to_cap_seconds = "-"
+if counts["running"] > 0 and used_runtime > 0:
+    avg_runtime = used_runtime / max(1, len(rows))
+    remain_runtime = max(0, max_runtime_total - used_runtime)
+    eta_to_cap_seconds = int(remain_runtime / max(1, counts["running"]))
+print(
+    f"Budget: tokens={used_tokens}/{max_tokens_total} ({(used_tokens/max_tokens_total)*100:.1f}%) "
+    f"runtime={used_runtime}/{max_runtime_total}s ({(used_runtime/max_runtime_total)*100:.1f}%) "
+    f"cost=${used_cost:.4f}/${max_cost_total:.4f} ({(used_cost/max_cost_total)*100:.1f}%) "
+    f"breaker={(breaker.get('state') or 'closed')} eta_to_cap={eta_to_cap_seconds if eta_to_cap_seconds == '-' else str(eta_to_cap_seconds)+'s'}"
+)
 print(
     f"Summary: running={counts['running']} stale={counts['stale']} "
     f"blocked={counts['blocked']} done={counts['done']} pending={counts['pending']}"
@@ -246,6 +280,7 @@ for row in rows:
         f"- @{row['role']}: {row['status']:<7} "
         f"pid={row['pid']} report={row['report']} log_age={row['log_age']} hb_age={row['hb_age']} "
         f"policy={row['policy_class']} action={row['next_action']} retry={row['retry_budget']} "
+        f"budget=t:{row['budget_tokens']} rt:{row['budget_runtime']}s c:{row['budget_cost']:.4f} "
         f"chat={chat} corr={corr}"
     )
 print("")

@@ -50,7 +50,14 @@ Build a step-based agent orchestration flow where:
 ### P2 — Production-Grade Governance
 
 - [x] Add policy-as-code for trust/tool permission per role
-- [ ] Add budget guardrails (token/time caps + circuit breaker)
+- [x] Add budget guardrails (token/time caps + circuit breaker)
+  - Define budget policy spec in `workflows/policies/budget-policy.v1.json`
+  - Enforce per-run caps: `max_tokens_total`, `max_runtime_seconds`, `max_cost_usd`
+  - Enforce per-role caps: `max_tokens_per_role`, `max_runtime_per_role_seconds`
+  - Add soft-threshold alerts at 70% and 90% budget utilization
+  - Add hard-stop circuit breaker on cap breach with fail-closed step state
+  - Emit budget events into runtime artifacts for audit (`budget-events.jsonl`)
+  - Require explicit PM override reason for one-time budget exception
 - [ ] Add immutable evidence integrity checks (checksum/signature)
 - [ ] Add full traceability map:
   - requirement -> task -> runId -> evidence -> approval decision
@@ -106,6 +113,11 @@ Build a step-based agent orchestration flow where:
 - [x] Add recovery runbook and `team recover` command flow (`resume`/`retry`/`rollback`)
 - [x] Add TDD regression suite to protect legacy business logic (`scripts/test-workflow-tdd-regression.sh`)
 - [x] Expand TDD regression coverage for lock conflict, collect idempotency, reset flow, skip-gate audit, and CLI validation
+- [ ] Add budget policy artifact `workflows/policies/budget-policy.v1.json` with per-run and per-role caps
+- [ ] Add budget meter module in `scripts/workflow/lib/*` to track token/time/cost spend by correlation ID
+- [ ] Add circuit breaker state transitions (`open`/`half-open`/`closed`) with cooldown + manual reset path
+- [ ] Add `team monitor` budget view for PM heartbeat (`% used`, `eta to cap`, `breaker state`)
+- [ ] Add regression tests for budget cutoff, exception audit, and breaker recovery behavior
 - [x] Split Phase 1: extract shared modules (`common/state/lock/gate`) into `scripts/workflow/lib/*` with behavior preserved
 - [x] Split Phase 2: extract `cmd_dispatch` and `cmd_collect` into `scripts/workflow/lib/dispatch.sh`
 - [x] Split Phase 3: extract orchestration commands (`cmd_team`, `cmd_brainstorm`) into `scripts/workflow/lib/orchestration.sh`

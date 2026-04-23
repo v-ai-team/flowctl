@@ -12,6 +12,9 @@ IDEMPOTENCY_FILE="$REPO_ROOT/workflows/runtime/idempotency.json"
 ROLE_SESSIONS_FILE="$REPO_ROOT/workflows/runtime/role-sessions.json"
 HEARTBEATS_FILE="$REPO_ROOT/workflows/runtime/heartbeats.jsonl"
 ROLE_POLICY_FILE="$REPO_ROOT/workflows/policies/role-policy.v1.json"
+BUDGET_POLICY_FILE="$REPO_ROOT/workflows/policies/budget-policy.v1.json"
+BUDGET_STATE_FILE="$REPO_ROOT/workflows/runtime/budget-state.json"
+BUDGET_EVENTS_FILE="$REPO_ROOT/workflows/runtime/budget-events.jsonl"
 
 # Module directory for dynamic source in entrypoint.
 LIB_DIR="$REPO_ROOT/scripts/workflow/lib"

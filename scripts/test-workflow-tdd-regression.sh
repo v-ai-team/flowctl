@@ -5,6 +5,8 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKFLOW="$REPO_ROOT/scripts/workflow.sh"
 STATE_FILE="$REPO_ROOT/workflow-state.json"
 RUNTIME_DIR="$REPO_ROOT/workflows/runtime"
+POLICY_FILE="$REPO_ROOT/workflows/policies/budget-policy.v1.json"
+BUDGET_STATE_FILE="$REPO_ROOT/workflows/runtime/budget-state.json"
 TEST_ROOT="$REPO_ROOT/workflows/evidence/tdd"
 STAMP="$(date '+%Y%m%d-%H%M%S')"
 RUN_DIR="$TEST_ROOT/$STAMP"
@@ -21,9 +23,16 @@ fi
 
 BACKUP_STATE="$RUN_DIR/workflow-state.backup.json"
 cp "$STATE_FILE" "$BACKUP_STATE"
+BACKUP_POLICY="$RUN_DIR/budget-policy.backup.json"
+if [[ -f "$POLICY_FILE" ]]; then
+  cp "$POLICY_FILE" "$BACKUP_POLICY"
+fi
 
 cleanup() {
   cp "$BACKUP_STATE" "$STATE_FILE"
+  if [[ -f "$BACKUP_POLICY" ]]; then
+    cp "$BACKUP_POLICY" "$POLICY_FILE"
+  fi
   rm -rf "$REPO_ROOT/.workflow-lock" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -115,12 +124,43 @@ expect_success "Start step 1" bash "$WORKFLOW" start
 expect_failure "Approve must be blocked before reports/collect" bash "$WORKFLOW" approve --by "TDD"
 expect_failure "Policy should deny trust for restricted roles" bash "$WORKFLOW" dispatch --headless --trust --dry-run
 
-expect_success "Dispatch dry-run for step 1" bash "$WORKFLOW" team delegate --dry-run
+dispatch_step1_output="$(bash "$WORKFLOW" team delegate --dry-run)"
+assert_contains "$dispatch_step1_output" "[budget] allow" "dispatch should evaluate budget before launch"
+budget_tokens_before="$(python3 - <<PY
+import json
+from pathlib import Path
+p=Path("$BUDGET_STATE_FILE")
+if not p.exists():
+    print(0)
+else:
+    d=json.loads(p.read_text(encoding="utf-8"))
+    print(int(d.get("run", {}).get("consumed_tokens_est", 0)))
+PY
+)"
+_noop_dryrun="$(bash "$WORKFLOW" dispatch --headless --dry-run --role pm 2>&1 || true)"
+budget_tokens_after="$(python3 - <<PY
+import json
+from pathlib import Path
+p=Path("$BUDGET_STATE_FILE")
+if not p.exists():
+    print(0)
+else:
+    d=json.loads(p.read_text(encoding="utf-8"))
+    print(int(d.get("run", {}).get("consumed_tokens_est", 0)))
+PY
+)"
+if [[ "$budget_tokens_before" != "$budget_tokens_after" ]]; then
+  log "FAIL: dry-run should not mutate budget state ($budget_tokens_before -> $budget_tokens_after)"
+  exit 1
+fi
+log "PASS: dry-run should not mutate budget state"
 monitor_output="$(bash "$WORKFLOW" team monitor --stale-seconds 1)"
 assert_contains "$monitor_output" "Summary: running=" "team monitor should render runtime summary"
 assert_contains "$monitor_output" "corr=" "team monitor should show correlation key"
 assert_contains "$monitor_output" "policy=" "team monitor should classify policy type"
 assert_contains "$monitor_output" "retry=" "team monitor should show retry budget"
+assert_contains "$monitor_output" "Budget:" "team monitor should show budget heartbeat"
+assert_contains "$monitor_output" "breaker=" "team monitor should show breaker state"
 recover_output="$(bash "$WORKFLOW" team recover --role pm --mode retry --dry-run)"
 assert_contains "$recover_output" "PM recover" "team recover should be available"
 
@@ -210,6 +250,25 @@ assert_contains "$dispatch_output" "[idempotency] skip @tech-lead" "idempotency 
 dispatch_force_output="$(bash "$WORKFLOW" dispatch --headless --dry-run --force-run 2>&1)"
 assert_contains "$dispatch_force_output" "would run headless @tech-lead" "force-run should bypass idempotency skip"
 
+python3 - <<PY
+import json
+from pathlib import Path
+p=Path("$POLICY_FILE")
+d=json.loads(p.read_text(encoding="utf-8"))
+d["enabled"]=True
+d.setdefault("defaults", {})
+d["defaults"].setdefault("run_caps", {})
+d["defaults"]["run_caps"]["max_tokens_total"] = 1
+d["defaults"]["run_caps"]["max_runtime_seconds"] = 60
+d["defaults"]["run_caps"]["max_cost_usd"] = 0.001
+p.write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
+PY
+budget_block_output="$(bash "$WORKFLOW" dispatch --headless --dry-run --force-run --role pm 2>&1 || true)"
+assert_contains "$budget_block_output" "[budget] block @pm" "budget breaker should block over-cap launch"
+
+budget_override_output="$(bash "$WORKFLOW" dispatch --headless --dry-run --force-run --role pm --budget-override-reason 'pm emergency' 2>&1 || true)"
+assert_contains "$budget_override_output" "[budget] allow @pm" "budget override reason should allow one-time exception"
+
 expect_failure "Approve must fail when --by value missing" bash "$WORKFLOW" approve --by
 
 expect_success "Approve skip-gate should bypass gate and advance step" bash "$WORKFLOW" approve --skip-gate --by "TDD-BYPASS"
@@ -250,6 +309,8 @@ assert_contains "$step_after_reset" "1" "reset should set current_step back to 1
   echo "- team monitor reports runtime role statuses"
   echo "- correlation ID surfaced in monitor output"
   echo "- timeout/retry policy class surfaced in monitor output"
+  echo "- budget heartbeat surfaced in monitor output"
+  echo "- budget circuit breaker blocks over-cap dispatch"
   echo "- team recover runbook actions exposed via CLI"
   echo "- approve argument validation (--by requires value)"
   echo "- approve --skip-gate writes BYPASS gate audit"

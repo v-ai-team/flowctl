@@ -8,6 +8,7 @@ cmd_dispatch() {
   local force_run="false"
   local max_retries="3"
   local role_filter=""
+  local budget_override_reason=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --launch) auto_launch="true" ;;
@@ -17,9 +18,10 @@ cmd_dispatch() {
       --force-run) force_run="true" ;;
       --max-retries) max_retries="${2:-3}"; shift ;;
       --role) role_filter="${2:-}"; shift ;;
+      --budget-override-reason) budget_override_reason="${2:-}"; shift ;;
       *)
         echo -e "${RED}Unknown option for dispatch: $1${NC}"
-        echo -e "Usage: bash scripts/workflow.sh dispatch [--launch|--headless] [--trust] [--dry-run] [--force-run] [--max-retries N] [--role name]\n"
+        echo -e "Usage: bash scripts/workflow.sh dispatch [--launch|--headless] [--trust] [--dry-run] [--force-run] [--max-retries N] [--role name] [--budget-override-reason text]\n"
         exit 1
         ;;
     esac
@@ -68,6 +70,7 @@ PY
   [[ -f "$IDEMPOTENCY_FILE" ]] || echo '{}' > "$IDEMPOTENCY_FILE"
   [[ -f "$ROLE_SESSIONS_FILE" ]] || echo '{}' > "$ROLE_SESSIONS_FILE"
   [[ -f "$HEARTBEATS_FILE" ]] || : > "$HEARTBEATS_FILE"
+  wf_budget_init_artifacts
 
   WF_STEP="$step" WF_STATE="$STATE_FILE" WF_REPO="$REPO_ROOT" WF_DISPATCH="$dispatch_dir" WF_REPORTS="$reports_dir" WF_POLICY_FILE="$ROLE_POLICY_FILE" WF_TRUST_REQUESTED="$trust_workspace" WF_DISPATCH_MODE="$dispatch_mode" python3 - <<'PY'
 import json
@@ -326,6 +329,14 @@ PY
         skipped=$((skipped + 1))
         continue
       fi
+      local budget_decision
+      budget_decision=$(wf_budget_prelaunch_check "$step" "$role" "$workflow_id" "$run_id" "$max_retries" "$dry_run" "$budget_override_reason")
+      if [[ "${budget_decision%%|*}" == "BLOCK" ]]; then
+        echo -e "${RED}[budget] block @${role}:${NC} ${budget_decision#BLOCK|}"
+        skipped=$((skipped + 1))
+        continue
+      fi
+      echo -e "${CYAN}[budget] allow @${role}:${NC} ${budget_decision#ALLOW|}"
       if [[ "$dry_run" == "true" ]]; then
         echo -e "${CYAN}[dry-run] would run headless @${role}:${NC} ${headless_cmd}"
         launched=$((launched + 1))
@@ -387,6 +398,13 @@ PY
       local launched=0
       while IFS='|' read -r role cmd; do
         [[ -z "$role" || -z "$cmd" ]] && continue
+        local budget_decision
+        budget_decision=$(wf_budget_prelaunch_check "$step" "$role" "$workflow_id" "$run_id" "$max_retries" "$dry_run" "$budget_override_reason")
+        if [[ "${budget_decision%%|*}" == "BLOCK" ]]; then
+          echo -e "${RED}[budget] block @${role}:${NC} ${budget_decision#BLOCK|}"
+          continue
+        fi
+        echo -e "${CYAN}[budget] allow @${role}:${NC} ${budget_decision#ALLOW|}"
         if [[ "$dry_run" == "true" ]]; then
           echo -e "${CYAN}[dry-run] would launch @${role}:${NC} $cmd"
           launched=$((launched + 1))
@@ -405,6 +423,17 @@ PY
         echo -e "\n${GREEN}${BOLD}Auto-launch complete.${NC} total_sessions=${launched}"
       fi
     fi
+  else
+    while IFS='|' read -r role _cmd; do
+      [[ -z "$role" ]] && continue
+      local budget_decision
+      budget_decision=$(wf_budget_prelaunch_check "$step" "$role" "$workflow_id" "$run_id" "$max_retries" "true" "")
+      if [[ "${budget_decision%%|*}" == "BLOCK" ]]; then
+        echo -e "${RED}[budget] block @${role}:${NC} ${budget_decision#BLOCK|}"
+      else
+        echo -e "${CYAN}[budget] allow @${role}:${NC} ${budget_decision#ALLOW|}"
+      fi
+    done < "$commands_file"
   fi
 
   echo -e "Sau khi workers xong, chạy: ${BOLD}bash scripts/workflow.sh collect${NC}\n"
@@ -544,5 +573,12 @@ PY
 
   echo -e "\n${GREEN}${BOLD}Collect hoàn tất.${NC}"
   echo -e "${collect_output}"
+  local rf
+  for rf in "$reports_dir"/*-report.md; do
+    [[ -f "$rf" ]] || continue
+    local role_done="${rf##*/}"
+    role_done="${role_done%-report.md}"
+    wf_budget_mark_role_completed "$step" "$role_done"
+  done
   echo -e "Kiểm tra nhanh: ${BOLD}bash scripts/workflow.sh summary${NC}\n"
 }
