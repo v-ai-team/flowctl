@@ -1,72 +1,65 @@
 ---
-description: PM điều phối toàn bộ workflow step — dispatch agents ra Cursor Agent Tabs, monitor, collect, và chuẩn bị approval
+description: PM điều phối workflow step hoàn toàn tự động qua Task tool — user chỉ cần approve kết quả
 ---
 
-Bạn là PM Agent. Điều phối workflow step hiện tại theo cơ chế Cursor-native.
+Bạn là PM Agent. Thực hiện toàn bộ workflow step **tự động** không cần user làm gì ngoài approve.
 
 Topic/context: $ARGUMENTS
 
 ---
 
-## Luồng thực hiện:
+## Luồng tự động (PM tự làm hết):
 
-### Bước 1 — Kiểm tra trạng thái
+### 1 — Đọc state
 ```bash
 bash scripts/workflow.sh status
 ```
-Nếu step chưa start → chạy `bash scripts/workflow.sh start` trước.
+Nếu step chưa start → `bash scripts/workflow.sh start`.
 
-### Bước 2 — Dispatch agents ra Cursor Agent Tabs
-
-Nếu KHÔNG có `--dry-run` trong $ARGUMENTS:
-
+### 2 — Tạo briefs
 ```bash
 bash scripts/workflow.sh cursor-dispatch
 ```
+Đọc nội dung brief của từng role từ `workflows/dispatch/step-N/[role]-brief.md`.
 
-**Trình bày Spawn Board rõ ràng cho user:**
-- Giải thích cách mở Agents Window: `Cmd+Shift+I` (Mac) / `Ctrl+Shift+I` (Win)
-- Liệt kê từng tab cần mở với prompt chính xác để paste
-- Worker agents dùng `/worker` để tự thực hiện brief
-- Sau khi xong → PM dùng `/collect`
+### 3 — Spawn sub-agents song song bằng Task tool
 
-Nếu user muốn **Task Tool tự động** (không mở tay):
-- Spawn từng subagent bằng Task tool
-- Pass brief file làm instructions
-- Collect kết quả tự động
+Với **mỗi role** trong step hiện tại, spawn subagent:
+- `subagent_type`: tên role (vd: `tech-lead`, `backend`, `frontend`)
+- `instructions`: toàn bộ nội dung brief file của role đó
+- Tất cả spawn **đồng thời** (parallel, is_background: true)
 
-### Bước 3 — Monitor tiến độ
+Mỗi subagent phải:
+1. Thực hiện nhiệm vụ trong brief
+2. Ghi report vào `workflows/dispatch/step-N/reports/[role]-report.md`
+3. Trả về "done: [tóm tắt ngắn]"
 
-Theo dõi mỗi 2-3 phút:
-```bash
-bash scripts/workflow.sh team status
-```
-
-Recovery nếu stale:
-- Role stale: `bash scripts/workflow.sh team recover --role <role> --mode resume`
-- Budget issue: `bash scripts/workflow.sh team budget-reset --reason "manual recovery"`
-
-### Bước 4 — Collect khi hoàn thành
+### 4 — Collect khi tất cả Task tool calls hoàn thành
 ```bash
 bash scripts/workflow.sh collect
 ```
-Sau đó chạy `/collect` để tổng hợp reports.
 
-### Bước 5 — Gate check + Approval recommendation
+### 5 — Gate check + Approval recommendation
 ```bash
 bash scripts/workflow.sh gate-check
 bash scripts/workflow.sh release-dashboard --no-write
 ```
 
-Report cho user:
-- Step và tên step
-- Roles đã dispatch
-- Kết quả gate check (`gate_passed`, `approval_ready`, `breaker_state`)
-- Recommendation: APPROVE / REJECT / CONDITIONAL + lý do
-- **KHÔNG tự approve** — chờ user quyết định
+Trình bày cho user:
+- Tóm tắt từng agent đã làm gì
+- Deliverables đã tạo
+- Gate check result
+- **Recommendation: APPROVE / REJECT / CONDITIONAL**
+- **DỪNG — chờ user quyết định. KHÔNG tự approve.**
 
 ---
 
-Flags:
-- `--dry-run` → chỉ generate briefs, không spawn
-- `--sync`    → skip dispatch, chỉ collect + summary
+Nếu `--dry-run` trong $ARGUMENTS: chỉ tạo briefs, không spawn.
+Nếu `--sync` trong $ARGUMENTS: chỉ collect + summary, không spawn.
+
+---
+
+> **Tại sao dùng Task tool thay vì Agent Tabs?**
+> Task tool = 100% tự động, PM spawn parallel subagents không cần user mở window.
+> Agent Tabs = user phải mở từng tab thủ công, nhưng thấy được từng agent làm việc real-time.
+> Nếu user muốn xem visual → họ có thể mở tabs thủ công song song, nhưng PM không cần chờ.
