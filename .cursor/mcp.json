@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "graphify": {
+      "command": "python3",
+      "args": ["-m", "graphify.serve", "--root", "."],
+      "env": {
+        "GRAPHIFY_GRAPH_PATH": ".graphify/graph.json",
+        "GRAPHIFY_AUTO_INDEX": "true"
+      },
+      "description": "Codebase knowledge graph — hiểu cấu trúc, dependencies, clusters code"
+    },
+    "gitnexus": {
+      "command": "npx",
+      "args": ["gitnexus", "--mcp", "--repo", "."],
+      "env": {
+        "GITNEXUS_AUTO_INDEX": "true"
+      },
+      "description": "Code intelligence — 16 MCP tools: query, context, impact analysis, detect_changes"
+    },
+    "workflow-state": {
+      "command": "node",
+      "args": [".claude/mcp-workflow-state.js"],
+      "description": "Workflow state tracker — read/write current step, approvals, blockers"
+    }
+  }
+}
