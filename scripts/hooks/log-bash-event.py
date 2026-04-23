@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+"""
+PostToolUse hook — Detect expensive bash commands, log as waste events.
+Receives JSON on stdin from Claude Code hooks system.
+"""
+
+import json, sys, os, re
+from pathlib import Path
+from datetime import datetime
+
+REPO    = Path(__file__).resolve().parent.parent.parent
+EVENTS  = REPO / ".cache" / "mcp" / "events.jsonl"
+STATS_F = REPO / ".cache" / "mcp" / "session-stats.json"
+
+# Commands that should be replaced with MCP tools
+WASTEFUL_PATTERNS = [
+    (r"git\s+log",           "wf_git()",          250),
+    (r"git\s+status",        "wf_git()",          180),
+    (r"git\s+diff",          "wf_git()",          300),
+    (r"git\s+branch",        "wf_git()",          100),
+    (r"cat\s+workflow-state","wf_state()",        480),
+    (r"cat\s+.*\.json",      "wf_read(path)",     300),
+    (r"ls\s+-la?",           "wf_files()",        120),
+    (r"find\s+\.",           "wf_files()",        200),
+    (r"wc\s+-l",             "wf_read(path)",      80),
+    (r"python3.*workflow-state", "wf_state()",    480),
+    (r"bash\s+scripts/workflow\.sh\s+status", "wf_state()", 300),
+]
+
+def estimate_tokens(text: str) -> int:
+    if not text: return 0
+    chars = len(text)
+    quotes = text.count('"')
+    non_ascii = sum(1 for c in text if ord(c) > 127)
+    json_ratio = quotes / max(chars, 1)
+    viet_ratio = non_ascii / max(chars, 1)
+    if json_ratio > 0.05: return chars // 3
+    if viet_ratio > 0.15: return chars // 2
+    return chars // 4
+
+def ensure_cache():
+    EVENTS.parent.mkdir(parents=True, exist_ok=True)
+
+def log_event(event):
+    ensure_cache()
+    event["ts"] = datetime.utcnow().isoformat() + "Z"
+    with open(EVENTS, "a") as f:
+        f.write(json.dumps(event) + "\n")
+    update_stats(event)
+
+def update_stats(event):
+    stats = {}
+    try:
+        if STATS_F.exists():
+            stats = json.loads(STATS_F.read_text())
+    except Exception:
+        pass
+    stats["bash_waste_tokens"] = stats.get("bash_waste_tokens", 0) + event.get("waste_tokens", 0)
+    stats["bash_calls"]        = stats.get("bash_calls", 0) + 1
+    try:
+        STATS_F.write_text(json.dumps(stats, indent=2))
+    except Exception:
+        pass
+
+def main():
+    try:
+        raw = sys.stdin.read()
+        data = json.loads(raw) if raw.strip() else {}
+    except Exception:
+        sys.exit(0)
+
+    # Claude Code PostToolUse hook format:
+    # {"tool_name": "Bash", "tool_input": {"command": "..."}, "tool_response": {"output": "..."}}
+    tool_name = data.get("tool_name", "")
+    if tool_name != "Bash":
+        sys.exit(0)
+
+    tool_input    = data.get("tool_input", {}) or {}
+    tool_response = data.get("tool_response", {}) or {}
+    command = tool_input.get("command", "") or ""
+    output  = str(tool_response.get("output", "") or "")
+
+    output_tokens = estimate_tokens(output)
+
+    # Check for wasteful patterns
+    suggestion = None
+    waste_tokens = 0
+    for pattern, alt, baseline_tok in WASTEFUL_PATTERNS:
+        if re.search(pattern, command, re.IGNORECASE):
+            waste_tokens = max(0, output_tokens - 80)  # MCP alt ≈ 80 tokens
+            suggestion   = alt
+            break
+
+    if waste_tokens > 0:
+        # Print warning to stderr (visible in terminal but not injected into agent context)
+        short_cmd = command[:60] + "…" if len(command) > 60 else command
+        sys.stderr.write(
+            f"\n⚠️  TOKEN WASTE DETECTED\n"
+            f"   Command  : {short_cmd}\n"
+            f"   Est. cost: ~{output_tokens:,} tokens\n"
+            f"   Use instead: {suggestion} (~80 tokens)\n"
+            f"   Wasted   : ~{waste_tokens:,} tokens\n\n"
+        )
+        sys.stderr.flush()
+
+    # Always log bash calls for monitoring
+    log_event({
+        "type":          "bash",
+        "cmd":           command[:120],
+        "output_tokens": output_tokens,
+        "waste_tokens":  waste_tokens,
+        "suggestion":    suggestion,
+    })
+
+    sys.exit(0)
+
+if __name__ == "__main__":
+    main()

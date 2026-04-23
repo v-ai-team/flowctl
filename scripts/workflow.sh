@@ -190,6 +190,7 @@ cmd_start() {
   name=$(wf_get_step_name "$step")
   agent=$(wf_get_step_agent "$step")
 
+  bash scripts/hooks/invalidate-cache.sh state 2>/dev/null || true
   echo -e "\n${GREEN}${BOLD}Step $step — $name đã bắt đầu${NC}"
   echo -e "Agent chính: ${YELLOW}@$agent${NC}"
   echo -e "\nKhởi động Graphify context:"
@@ -258,6 +259,10 @@ cmd_approve() {
     wf_json_set "overall_status" "completed"
     echo -e "\n${GREEN}${BOLD}🎉 WORKFLOW HOÀN THÀNH! Project đã release.${NC}\n"
   fi
+  # Invalidate MCP state cache + generate token report
+  bash scripts/hooks/invalidate-cache.sh state 2>/dev/null || true
+  python3 scripts/hooks/generate-token-report.py --step "$step" 2>/dev/null || true
+
   local manifest_rel="workflows/runtime/evidence/step-${step}-manifest.json"
   local trace_row
   trace_row=$(wf_traceability_record_approval "$step" "$by" "$([[ "$skip_gate" == "true" ]] && echo "bypass" || echo "approved")" "$manifest_rel" 2>/dev/null || true)
@@ -427,6 +432,7 @@ case "$CMD" in
     SUBCMD="${1:-scan}"; shift || true
     cmd_mercenary "$SUBCMD" "$@"
     ;;
+  monitor|mon)  python3 scripts/monitor.py "$@" ;;
   retro)        cmd_retro "$@" ;;
   complexity)   cmd_complexity ;;
   team)         cmd_team "$@" ;;
@@ -440,6 +446,8 @@ case "$CMD" in
     echo -e "  init --project \"Name\"  Khởi tạo dự án mới"
     echo -e "  status                 Xem trạng thái"
     echo -e "  start                  Bắt đầu step hiện tại"
+    echo -e "  monitor [--once] [--interval=N]"
+    echo -e "                         Live token monitoring dashboard (separate terminal)"
     echo -e "  complexity             Đánh giá complexity score của step hiện tại"
     echo -e "  war-room [merge]       Phase 0: PM + TechLead align (complexity-gated)"
     echo -e "  cursor-dispatch [cd] [--skip-war-room] [--merge]"
