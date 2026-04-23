@@ -115,6 +115,8 @@ expect_success "Start step 1" bash "$WORKFLOW" start
 expect_failure "Approve must be blocked before reports/collect" bash "$WORKFLOW" approve --by "TDD"
 
 expect_success "Dispatch dry-run for step 1" bash "$WORKFLOW" team delegate --dry-run
+monitor_output="$(bash "$WORKFLOW" team monitor --stale-seconds 1)"
+assert_contains "$monitor_output" "Summary: running=" "team monitor should render runtime summary"
 
 REPORT_DIR="$REPO_ROOT/workflows/dispatch/step-1/reports"
 mkdir -p "$REPORT_DIR"
@@ -238,6 +240,7 @@ assert_contains "$step_after_reset" "1" "reset should set current_step back to 1
   echo "- gate fails on open blocker, passes after resolve"
   echo "- approve advances workflow step when gate passes"
   echo "- idempotency skip + force-run override behavior"
+  echo "- team monitor reports runtime role statuses"
   echo "- approve argument validation (--by requires value)"
   echo "- approve --skip-gate writes BYPASS gate audit"
   echo "- active lock blocks mutating command"

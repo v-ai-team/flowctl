@@ -1,5 +1,5 @@
-SUMMARY: PM completed requirements baseline.
+SUMMARY: PM baseline done.
 DELIVERABLE: docs/requirements.md
-DECISION: Use PM as single communication gateway.
-BLOCKER: Need techlead estimate confidence threshold.
-NEXT: Sync with techlead for planning.
+DECISION: Keep PM gateway model.
+BLOCKER: Need confidence threshold from tech-lead.
+NEXT: Sync tech-lead.

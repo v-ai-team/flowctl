@@ -29,15 +29,17 @@ cmd_dispatch() {
   fi
 
   local step
-  step=$(require_initialized_workflow)
+  step=$(wf_require_initialized_workflow)
 
   local dispatch_dir="$REPO_ROOT/workflows/dispatch/step-$step"
   local reports_dir="$dispatch_dir/reports"
   local runtime_dir="$REPO_ROOT/workflows/runtime"
-  ensure_dir "$dispatch_dir"
-  ensure_dir "$reports_dir"
-  ensure_dir "$runtime_dir"
+  wf_ensure_dir "$dispatch_dir"
+  wf_ensure_dir "$reports_dir"
+  wf_ensure_dir "$runtime_dir"
   [[ -f "$IDEMPOTENCY_FILE" ]] || echo '{}' > "$IDEMPOTENCY_FILE"
+  [[ -f "$ROLE_SESSIONS_FILE" ]] || echo '{}' > "$ROLE_SESSIONS_FILE"
+  [[ -f "$HEARTBEATS_FILE" ]] || : > "$HEARTBEATS_FILE"
 
   WF_STEP="$step" WF_STATE="$STATE_FILE" WF_REPO="$REPO_ROOT" WF_DISPATCH="$dispatch_dir" WF_REPORTS="$reports_dir" python3 - <<'PY'
 import json
@@ -110,7 +112,7 @@ PY
   local commands_file="$dispatch_dir/agent-commands.txt"
   local trust_flag=""
   [[ "$trust_workspace" == "true" ]] && trust_flag="--trust"
-  WF_STEP="$step" WF_STATE="$STATE_FILE" WF_REPO="$REPO_ROOT" WF_DISPATCH="$dispatch_dir" WF_COMMANDS="$commands_file" WF_TRUST="$trust_flag" python3 - <<'PY'
+  WF_STEP="$step" WF_STATE="$STATE_FILE" WF_REPO="$REPO_ROOT" WF_DISPATCH="$dispatch_dir" WF_COMMANDS="$commands_file" WF_TRUST="$trust_flag" WF_ROLE_SESSIONS="$ROLE_SESSIONS_FILE" python3 - <<'PY'
 import json
 import os
 from pathlib import Path
@@ -121,6 +123,11 @@ step = str(os.environ["WF_STEP"])
 dispatch_dir = Path(os.environ["WF_DISPATCH"])
 commands_file = Path(os.environ["WF_COMMANDS"])
 trust_flag = os.environ.get("WF_TRUST", "").strip()
+role_sessions_path = Path(os.environ["WF_ROLE_SESSIONS"])
+
+role_sessions = {}
+if role_sessions_path.exists():
+    role_sessions = json.loads(role_sessions_path.read_text(encoding="utf-8"))
 
 data = json.loads(state_path.read_text(encoding="utf-8"))
 s = data["steps"][step]
@@ -137,7 +144,11 @@ for role in roles:
     print(f"  # @{role}")
     prompt = f"Bạn là @{role}. Đọc brief tại {brief_rel} và thực hiện đúng yêu cầu."
     trust_part = f"{trust_flag} " if trust_flag else ""
-    cmd = f'agent {trust_part}--workspace "{repo_root}" "{prompt}"'
+    role_chat = (role_sessions.get("roles", {}) or {}).get(role, {}).get("chat_id", "")
+    if role_chat:
+        cmd = f'agent {trust_part}--workspace "{repo_root}" --resume "{role_chat}" "{prompt}"'
+    else:
+        cmd = f'agent {trust_part}--workspace "{repo_root}" "{prompt}"'
     print(f"  {cmd}")
     machine_lines.append(f"{role}|{cmd}")
     print()
@@ -147,15 +158,63 @@ PY
 
   if [[ "$headless" == "true" ]]; then
     local logs_dir="$dispatch_dir/logs"
-    ensure_dir "$logs_dir"
+    wf_ensure_dir "$logs_dir"
     local launched=0
     local skipped=0
     while IFS='|' read -r role cmd; do
       [[ -z "$role" || -z "$cmd" ]] && continue
       local report_path="$reports_dir/${role}-report.md"
       local log_path="$logs_dir/${role}.log"
+      local capture_script="$REPO_ROOT/scripts/workflow/lib/stream_json_capture.py"
+      local role_chat_id
+      role_chat_id=$(WF_ROLE_SESSIONS_FILE="$ROLE_SESSIONS_FILE" WF_ROLE="$role" python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+path = Path(os.environ["WF_ROLE_SESSIONS_FILE"])
+role = os.environ["WF_ROLE"]
+if not path.exists():
+    print("")
+    raise SystemExit(0)
+data = json.loads(path.read_text(encoding="utf-8"))
+print((data.get("roles", {}) or {}).get(role, {}).get("chat_id", ""))
+PY
+)
+      if [[ -z "$role_chat_id" && "$dry_run" != "true" ]]; then
+        local new_chat
+        new_chat=$(agent --workspace "$REPO_ROOT" create-chat 2>/dev/null | python3 -c 'import re,sys; t=sys.stdin.read(); c=re.findall(r"[a-f0-9]{8}-[a-f0-9-]{20,}", t, flags=re.I); lines=[ln.strip() for ln in t.splitlines() if ln.strip()]; print(c[-1] if c else (lines[-1] if lines else ""))')
+        if [[ "$new_chat" =~ ^[A-Za-z0-9-]{8,}$ ]]; then
+          role_chat_id="$new_chat"
+          WF_ROLE_SESSIONS_FILE="$ROLE_SESSIONS_FILE" WF_ROLE="$role" WF_CHAT_ID="$role_chat_id" WF_STEP="$step" python3 - <<'PY'
+import json
+import os
+from datetime import datetime
+from pathlib import Path
+
+path = Path(os.environ["WF_ROLE_SESSIONS_FILE"])
+data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+roles = data.setdefault("roles", {})
+roles[os.environ["WF_ROLE"]] = {
+    "chat_id": os.environ["WF_CHAT_ID"],
+    "last_step": int(os.environ["WF_STEP"]),
+    "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+}
+path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+PY
+          echo -e "${CYAN}[session] created role chat for @${role}:${NC} ${role_chat_id}"
+        else
+          echo -e "${YELLOW}[session] could not create chat for @${role}, fallback to one-shot command.${NC}"
+        fi
+      fi
+      local base_cmd="$cmd"
+      if [[ -n "$role_chat_id" ]]; then
+        local trust_part=""
+        [[ "$trust_workspace" == "true" ]] && trust_part="--trust "
+        base_cmd="agent ${trust_part}--workspace \"$REPO_ROOT\" --resume \"$role_chat_id\""
+      fi
       local headless_cmd
-      headless_cmd="${cmd} -p \"Thực hiện task theo brief, và GHI report đầy đủ vào file ${report_path}. Chỉ trả lời ngắn 'done' sau khi ghi file.\" --output-format text > \"${log_path}\" 2>&1"
+      headless_cmd="${base_cmd} -p \"Thực hiện task theo brief, và GHI report đầy đủ vào file ${report_path}. Chỉ trả lời ngắn 'done' sau khi ghi file.\" --output-format stream-json --stream-partial-output 2>&1 | python3 \"${capture_script}\" --step \"${step}\" --role \"${role}\" --log-path \"${log_path}\" --heartbeats-path \"${HEARTBEATS_FILE}\""
       local idem_key="step:${step}:role:${role}:mode:headless"
       local idem_decision
       idem_decision=$(WF_IDEMPOTENCY_FILE="$IDEMPOTENCY_FILE" WF_IDEMPOTENCY_KEY="$idem_key" WF_FORCE_RUN="$force_run" python3 - <<'PY'
@@ -268,7 +327,7 @@ PY
 
 cmd_collect() {
   local step
-  step=$(require_initialized_workflow)
+  step=$(wf_require_initialized_workflow)
 
   local reports_dir="$REPO_ROOT/workflows/dispatch/step-$step/reports"
   if [[ ! -d "$reports_dir" ]]; then

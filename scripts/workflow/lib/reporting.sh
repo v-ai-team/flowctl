@@ -2,7 +2,7 @@
 
 cmd_summary() {
   local step
-  step=$(json_get "current_step")
+  step=$(wf_json_get "current_step")
 
   python3 -c "
 import json

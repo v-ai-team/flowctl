@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-json_get() {
+wf_json_get() {
   python3 -c "
 import json, sys
 data = json.load(open('$STATE_FILE'))
@@ -12,7 +12,7 @@ print(val if val is not None else '')
 " 2>/dev/null || echo ""
 }
 
-json_set() {
+wf_json_set() {
   # $1 = dot-path, $2 = value (string), $3 = type (string|number|null)
   python3 -c "
 import json
@@ -44,7 +44,7 @@ with open('$STATE_FILE', 'w') as f:
 " 2>/dev/null
 }
 
-json_append() {
+wf_json_append() {
   # $1 = dot-path to array, $2 = JSON object string
   python3 -c "
 import json
@@ -68,9 +68,9 @@ with open('$STATE_FILE', 'w') as f:
 " 2>/dev/null
 }
 
-require_initialized_workflow() {
+wf_require_initialized_workflow() {
   local step
-  step=$(json_get "current_step")
+  step=$(wf_json_get "current_step")
   if [[ -z "$step" || "$step" == "0" ]]; then
     echo -e "${YELLOW}Workflow chưa được khởi tạo. Chạy: bash scripts/workflow.sh init${NC}" >&2
     exit 1
@@ -78,17 +78,17 @@ require_initialized_workflow() {
   echo "$step"
 }
 
-get_step_name() {
+wf_get_step_name() {
   local step="$1"
   python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d['steps'][str($step)]['name'])"
 }
 
-get_step_agent() {
+wf_get_step_agent() {
   local step="$1"
   python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d['steps'][str($step)]['agent'])"
 }
 
-get_step_roles_csv() {
+wf_get_step_roles_csv() {
   local step="$1"
   python3 - <<PY
 import json
@@ -102,3 +102,12 @@ for r in [s.get("agent","")] + s.get("support_agents", []):
 print(", ".join(roles))
 PY
 }
+
+# Backward-compatible aliases (Phase 5.2)
+json_get() { wf_warn_deprecated "json_get" "wf_json_get"; wf_json_get "$@"; }
+json_set() { wf_warn_deprecated "json_set" "wf_json_set"; wf_json_set "$@"; }
+json_append() { wf_warn_deprecated "json_append" "wf_json_append"; wf_json_append "$@"; }
+require_initialized_workflow() { wf_warn_deprecated "require_initialized_workflow" "wf_require_initialized_workflow"; wf_require_initialized_workflow "$@"; }
+get_step_name() { wf_warn_deprecated "get_step_name" "wf_get_step_name"; wf_get_step_name "$@"; }
+get_step_agent() { wf_warn_deprecated "get_step_agent" "wf_get_step_agent"; wf_get_step_agent "$@"; }
+get_step_roles_csv() { wf_warn_deprecated "get_step_roles_csv" "wf_get_step_roles_csv"; wf_get_step_roles_csv "$@"; }

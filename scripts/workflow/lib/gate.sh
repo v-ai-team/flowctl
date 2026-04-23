@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 
-write_gate_report() {
+wf_write_gate_report() {
   local step="$1"
   local status="$2"
   local detail="$3"
   local actor="$4"
   local reports_dir="$REPO_ROOT/workflows/gates/reports"
-  ensure_dir "$reports_dir"
+  wf_ensure_dir "$reports_dir"
 
   local ts_human
-  ts_human="$(now)"
+  ts_human="$(wf_now)"
   local ts_iso
   ts_iso="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
   local jsonl_file="$reports_dir/gate-events.jsonl"
@@ -42,7 +42,7 @@ PY
   } >> "$md_file"
 }
 
-evaluate_gate() {
+wf_evaluate_gate() {
   local step="$1"
   python3 - <<PY
 import json
@@ -112,3 +112,7 @@ print(
 )
 PY
 }
+
+# Backward-compatible aliases (Phase 5.2)
+write_gate_report() { wf_warn_deprecated "write_gate_report" "wf_write_gate_report"; wf_write_gate_report "$@"; }
+evaluate_gate() { wf_warn_deprecated "evaluate_gate" "wf_evaluate_gate"; wf_evaluate_gate "$@"; }

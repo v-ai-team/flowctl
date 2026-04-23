@@ -20,7 +20,7 @@
 #   dispatch [--launch|--headless] [--trust] [--dry-run] [--force-run]
 #                            Tạo briefs; launch UI hoặc chạy headless nền
 #   collect                  Gom worker reports vào workflow-state
-#   team <start|delegate|sync|status|run>
+#   team <start|delegate|sync|status|monitor|run>
 #                            PM-only orchestration: step-based spawn/collect/summary
 #   brainstorm [topic]       One-shot: init (if needed) + step-based delegate
 #   summary                  In summary của step hiện tại
@@ -30,14 +30,12 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-STATE_FILE="$REPO_ROOT/workflow-state.json"
-QA_GATE_FILE="$REPO_ROOT/workflows/gates/qa-gate.v1.json"
-WORKFLOW_LOCK_DIR="$REPO_ROOT/.workflow-lock"
-IDEMPOTENCY_FILE="$REPO_ROOT/workflows/runtime/idempotency.json"
+WORKFLOW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # ── Library modules ───────────────────────────────────────────
-LIB_DIR="$REPO_ROOT/scripts/workflow/lib"
+LIB_DIR="$WORKFLOW_ROOT/scripts/workflow/lib"
+# shellcheck source=/dev/null
+source "$LIB_DIR/config.sh"
 # shellcheck source=/dev/null
 source "$LIB_DIR/common.sh"
 # shellcheck source=/dev/null
@@ -96,9 +94,9 @@ cmd_status() {
   [[ ! -f "$STATE_FILE" ]] && { echo "workflow-state.json không tìm thấy. Chạy: bash setup.sh"; exit 1; }
 
   local step overall project
-  step=$(json_get "current_step")
-  overall=$(json_get "overall_status")
-  project=$(json_get "project_name")
+  step=$(wf_json_get "current_step")
+  overall=$(wf_json_get "overall_status")
+  project=$(wf_json_get "project_name")
 
   echo -e "\n${BLUE}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
   echo -e "${BLUE}${BOLD}   Workflow Status${NC}"
@@ -166,14 +164,14 @@ if open_blockers:
 
 cmd_start() {
   local step
-  step=$(require_initialized_workflow)
+  step=$(wf_require_initialized_workflow)
 
-  json_set "steps.$step.status" "in_progress"
-  json_set "steps.$step.started_at" "$(now)"
+  wf_json_set "steps.$step.status" "in_progress"
+  wf_json_set "steps.$step.started_at" "$(wf_now)"
 
   local name agent
-  name=$(get_step_name "$step")
-  agent=$(get_step_agent "$step")
+  name=$(wf_get_step_name "$step")
+  agent=$(wf_get_step_agent "$step")
 
   echo -e "\n${GREEN}${BOLD}Step $step — $name đã bắt đầu${NC}"
   echo -e "Agent chính: ${YELLOW}@$agent${NC}"
@@ -201,38 +199,38 @@ cmd_approve() {
     esac
   done
   local step
-  step=$(require_initialized_workflow)
+  step=$(wf_require_initialized_workflow)
   if [[ "$skip_gate" != "true" ]]; then
     local gate_result
-    if ! gate_result=$(evaluate_gate "$step"); then
-      write_gate_report "$step" "FAIL" "${gate_result#GATE_FAIL|}" "$by"
+    if ! gate_result=$(wf_evaluate_gate "$step"); then
+      wf_write_gate_report "$step" "FAIL" "${gate_result#GATE_FAIL|}" "$by"
       echo -e "\n${RED}${BOLD}✗ APPROVE BLOCKED BY QA GATE${NC}"
       echo -e "${RED}${gate_result#GATE_FAIL|}${NC}"
       echo -e "\nChạy kiểm tra: ${BOLD}bash scripts/workflow.sh gate-check${NC}"
       echo -e "Hoặc bypass có chủ đích: ${BOLD}bash scripts/workflow.sh approve --skip-gate --by \"Name\"${NC}\n"
       exit 1
     fi
-    write_gate_report "$step" "PASS" "${gate_result#GATE_OK|}" "$by"
+    wf_write_gate_report "$step" "PASS" "${gate_result#GATE_OK|}" "$by"
     echo -e "${GREEN}QA Gate passed:${NC} ${gate_result#GATE_OK|}"
   else
-    write_gate_report "$step" "BYPASS" "approve --skip-gate was used" "$by"
+    wf_write_gate_report "$step" "BYPASS" "approve --skip-gate was used" "$by"
   fi
   local name
-  name=$(get_step_name "$step")
+  name=$(wf_get_step_name "$step")
 
-  json_set "steps.$step.status" "completed"
-  json_set "steps.$step.approval_status" "approved"
-  json_set "steps.$step.completed_at" "$(now)"
-  json_set "steps.$step.approved_at" "$(now)"
-  json_set "steps.$step.approved_by" "$by"
+  wf_json_set "steps.$step.status" "completed"
+  wf_json_set "steps.$step.approval_status" "approved"
+  wf_json_set "steps.$step.completed_at" "$(wf_now)"
+  wf_json_set "steps.$step.approved_at" "$(wf_now)"
+  wf_json_set "steps.$step.approved_by" "$by"
 
   # Advance to next step
   local next_step=$((step + 1))
   if [[ $next_step -le 9 ]]; then
-    json_set "current_step" "$next_step" "number"
+    wf_json_set "current_step" "$next_step" "number"
     local next_name next_agent
-    next_name=$(get_step_name "$next_step")
-    next_agent=$(get_step_agent "$next_step")
+    next_name=$(wf_get_step_name "$next_step")
+    next_agent=$(wf_get_step_agent "$next_step")
 
     echo -e "\n${GREEN}${BOLD}✓ Step $step — $name: APPROVED${NC}"
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -240,21 +238,21 @@ cmd_approve() {
     echo -e "Agent: ${YELLOW}@$next_agent${NC}"
     echo -e "Bắt đầu: ${BOLD}bash scripts/workflow.sh start${NC}\n"
   else
-    json_set "overall_status" "completed"
+    wf_json_set "overall_status" "completed"
     echo -e "\n${GREEN}${BOLD}🎉 WORKFLOW HOÀN THÀNH! Project đã release.${NC}\n"
   fi
 }
 
 cmd_gate_check() {
   local step
-  step=$(require_initialized_workflow)
+  step=$(wf_require_initialized_workflow)
   local result
-  if result=$(evaluate_gate "$step"); then
-    write_gate_report "$step" "PASS" "${result#GATE_OK|}" "gate-check"
+  if result=$(wf_evaluate_gate "$step"); then
+    wf_write_gate_report "$step" "PASS" "${result#GATE_OK|}" "gate-check"
     echo -e "${GREEN}${BOLD}QA Gate: PASS${NC}"
     echo -e "${result#GATE_OK|}\n"
   else
-    write_gate_report "$step" "FAIL" "${result#GATE_FAIL|}" "gate-check"
+    wf_write_gate_report "$step" "FAIL" "${result#GATE_FAIL|}" "gate-check"
     echo -e "${RED}${BOLD}QA Gate: FAIL${NC}"
     echo -e "${RED}${result#GATE_FAIL|}${NC}\n"
     exit 1
@@ -264,15 +262,15 @@ cmd_gate_check() {
 cmd_reject() {
   local reason="${1:-Không có lý do}"
   local step
-  step=$(require_initialized_workflow)
+  step=$(wf_require_initialized_workflow)
   local name
-  name=$(get_step_name "$step")
+  name=$(wf_get_step_name "$step")
 
-  json_set "steps.$step.approval_status" "rejected"
-  json_set "steps.$step.status" "in_progress"
+  wf_json_set "steps.$step.approval_status" "rejected"
+  wf_json_set "steps.$step.status" "in_progress"
 
   # Append rejection note
-  json_append "steps.$step.decisions" "{\"type\": \"rejection\", \"reason\": \"$reason\", \"date\": \"$(today)\"}"
+  wf_json_append "steps.$step.decisions" "{\"type\": \"rejection\", \"reason\": \"$reason\", \"date\": \"$(wf_today)\"}"
 
   echo -e "\n${RED}${BOLD}✗ Step $step — $name: REJECTED${NC}"
   echo -e "Lý do: $reason"
@@ -284,10 +282,10 @@ cmd_add_blocker() {
   [[ -z "$desc" ]] && { echo -n "Mô tả blocker: "; read -r desc; }
 
   local step
-  step=$(require_initialized_workflow)
+  step=$(wf_require_initialized_workflow)
   local id="B$(date +%Y%m%d%H%M%S)"
 
-  json_append "steps.$step.blockers" "{\"id\": \"$id\", \"description\": \"$desc\", \"created_at\": \"$(now)\", \"resolved\": false}"
+  wf_json_append "steps.$step.blockers" "{\"id\": \"$id\", \"description\": \"$desc\", \"created_at\": \"$(wf_now)\", \"resolved\": false}"
 
   # Update metrics
   python3 -c "
@@ -306,7 +304,7 @@ cmd_resolve_blocker() {
   [[ -z "$id" ]] && { echo "Usage: blocker resolve <id>"; exit 1; }
 
   local step
-  step=$(require_initialized_workflow)
+  step=$(wf_require_initialized_workflow)
 
   python3 -c "
 import json
@@ -334,10 +332,10 @@ cmd_add_decision() {
   [[ -z "$desc" ]] && { echo -n "Quyết định: "; read -r desc; }
 
   local step
-  step=$(require_initialized_workflow)
+  step=$(wf_require_initialized_workflow)
   local id="D$(date +%Y%m%d%H%M%S)"
 
-  json_append "steps.$step.decisions" "{\"id\": \"$id\", \"description\": \"$desc\", \"date\": \"$(today)\"}"
+  wf_json_append "steps.$step.decisions" "{\"id\": \"$id\", \"description\": \"$desc\", \"date\": \"$(wf_today)\"}"
 
   python3 -c "
 import json
@@ -355,7 +353,7 @@ shift || true
 
 case "$CMD" in
   init|start|gate-check|approve|reject|conditional|blocker|decision|dispatch|collect|team|reset|brainstorm)
-    acquire_workflow_lock
+    wf_acquire_workflow_lock
     ;;
   *)
     ;;
@@ -400,7 +398,7 @@ case "$CMD" in
     echo -e "  dispatch [--launch|--headless] [--trust] [--dry-run] [--force-run]"
     echo -e "                         Tạo worker briefs + chạy workers"
     echo -e "  collect                Gom worker reports vào workflow-state"
-    echo -e "  team <start|delegate|sync|status|run>"
+    echo -e "  team <start|delegate|sync|status|monitor|run>"
     echo -e "                         PM-only orchestration cho sub-agents"
     echo -e "  brainstorm [topic] [--project Name] [--sync] [--wait N] [--dry-run]"
     echo -e "                         One-shot auto init + delegate theo current step"

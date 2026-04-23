@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-acquire_workflow_lock() {
+wf_acquire_workflow_lock() {
   if mkdir "$WORKFLOW_LOCK_DIR" 2>/dev/null; then
     echo "$$" > "$WORKFLOW_LOCK_DIR/pid"
-    trap release_workflow_lock EXIT
+    trap wf_release_workflow_lock EXIT
     return 0
   fi
 
@@ -16,7 +16,7 @@ acquire_workflow_lock() {
       rm -rf "$WORKFLOW_LOCK_DIR" 2>/dev/null || true
       if mkdir "$WORKFLOW_LOCK_DIR" 2>/dev/null; then
         echo "$$" > "$WORKFLOW_LOCK_DIR/pid"
-        trap release_workflow_lock EXIT
+        trap wf_release_workflow_lock EXIT
         echo -e "${YELLOW}Reclaimed stale workflow lock from pid=$holder.${NC}"
         return 0
       fi
@@ -32,6 +32,10 @@ acquire_workflow_lock() {
   exit 1
 }
 
-release_workflow_lock() {
+wf_release_workflow_lock() {
   rm -rf "$WORKFLOW_LOCK_DIR" 2>/dev/null || true
 }
+
+# Backward-compatible aliases (Phase 5.2)
+acquire_workflow_lock() { wf_warn_deprecated "acquire_workflow_lock" "wf_acquire_workflow_lock"; wf_acquire_workflow_lock "$@"; }
+release_workflow_lock() { wf_warn_deprecated "release_workflow_lock" "wf_release_workflow_lock"; wf_release_workflow_lock "$@"; }
