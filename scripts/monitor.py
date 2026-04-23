@@ -210,7 +210,11 @@ def render_rich():
         ),
         box=box.ROUNDED, border_style=eff_color, padding=(0, 2),
     )
-    stats_row = Columns([consumed_panel, saved_panel, eff_panel], equal=True, expand=True)
+    # Table-based stats row fills terminal width evenly (Columns doesn't respect expand)
+    stats_tbl = Table(box=None, show_header=False, padding=(0, 0), expand=True)
+    stats_tbl.add_column(ratio=1); stats_tbl.add_column(ratio=1); stats_tbl.add_column(ratio=1)
+    stats_tbl.add_row(consumed_panel, saved_panel, eff_panel)
+    stats_row = stats_tbl
 
     # ── Budget bar ──
     bud_color  = "red" if bud_pct > 150 else ("yellow" if bud_pct > 100 else "green")
@@ -248,20 +252,21 @@ def render_rich():
         title="[bold]Recent Activity[/bold]", box=box.SIMPLE_HEAD,
         padding=(0,1), title_style="cyan", border_style="dim",
     )
-    act_table.add_column("Time", width=8, style="dim")
-    act_table.add_column("Ops",  width=30)
-    act_table.add_column("Cost", justify="right", width=9, style="dim")
-    act_table.add_column("Tok",  justify="right", width=9)
+    act_table.add_column("Time", width=8,  style="dim", no_wrap=True)
+    act_table.add_column("Ops",  width=28, no_wrap=True)
+    act_table.add_column("Cost", justify="right", width=9,  style="dim", no_wrap=True)
+    act_table.add_column("Tok",  justify="right", width=9,  no_wrap=True)
     for turn in turns[-9:]:
         s   = compute_turn_summary(turn)
-        ops = ([f"[cyan]{t}[/cyan]" for t in s["tools"]] +
-               [f"[red]bash[/red][dim]:{c[:14]}[/dim]" for c in s["bash_cmds"][:1]])
+        tool_parts = [f"[cyan]{t}[/cyan]" for t in s["tools"][:3]]
+        if len(s["tools"]) > 3: tool_parts.append(f"[dim]+{len(s['tools'])-3}[/dim]")
+        bash_parts = [f"[red]bash[/red][dim]:{c[:12]}[/dim]" for c in s["bash_cmds"][:1]]
+        ops = "  ".join(tool_parts + bash_parts) or "[dim]—[/dim]"
         tok_color = "green" if s["saved"] > s["consumed"] else ("red" if s["consumed"] > 0 else "dim")
         tok_str   = f"[{tok_color}]{s['consumed']:,}[/{tok_color}]"
-        if s["waste"]: tok_str += f" [red]⚠{s['waste']:,}[/red]"
+        if s["waste"]: tok_str += f"[red]⚠[/red]"
         act_table.add_row(
-            s["ts"][-8:],
-            "  ".join(ops) or "[dim]—[/dim]",
+            s["ts"][-8:], ops,
             f"[dim]${s['cost']:.4f}[/dim]" if s["cost"] else "[dim]—[/dim]",
             tok_str,
         )
