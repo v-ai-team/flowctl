@@ -103,8 +103,8 @@ function updateSessionStats(event) {
 
   stats.session_start  = stats.session_start || new Date().toISOString();
   stats.last_event     = new Date().toISOString();
-  stats.total_consumed = (stats.total_consumed || 0) + (event.output_tokens || 0);
-  stats.total_saved    = (stats.total_saved    || 0) + (event.saved_tokens  || 0);
+  stats.total_consumed_tokens = (stats.total_consumed_tokens || 0) + (event.output_tokens || 0);
+  stats.total_saved_tokens    = (stats.total_saved_tokens    || 0) + (event.saved_tokens  || 0);
   stats.total_cost_usd = (stats.total_cost_usd || 0) + (event.cost_usd      || 0);
   stats.total_saved_usd= (stats.total_saved_usd|| 0) + (event.saved_usd     || 0);
   stats.bash_waste_tokens = (stats.bash_waste_tokens || 0) + (event.waste_tokens || 0);
@@ -479,12 +479,12 @@ function tool_cache_stats() {
   }));
   return {
     session_start: stats.session_start,
-    total_consumed_tokens: stats.total_consumed || 0,
-    total_saved_tokens: stats.total_saved || 0,
+    total_consumed_tokens: stats.total_consumed_tokens || 0,
+    total_saved_tokens: stats.total_saved_tokens || 0,
     total_cost_usd: Number((stats.total_cost_usd || 0).toFixed(4)),
     total_saved_usd: Number((stats.total_saved_usd || 0).toFixed(4)),
     bash_waste_tokens: stats.bash_waste_tokens || 0,
-    efficiency_pct: stats.total_consumed ? Math.round(stats.total_saved / (stats.total_consumed + stats.total_saved) * 100) : 0,
+    efficiency_pct: stats.total_consumed_tokens ? Math.round(stats.total_saved_tokens / (stats.total_consumed_tokens + stats.total_saved_tokens) * 100) : 0,
     tools: toolStats,
   };
 }
