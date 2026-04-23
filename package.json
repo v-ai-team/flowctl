@@ -1,0 +1,13 @@
+{
+  "name": "brainstormings-workflow",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "IT Product Team Workflow — MCP servers",
+  "private": true,
+  "scripts": {
+    "setup-hooks": "node scripts/setup-git-hooks.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

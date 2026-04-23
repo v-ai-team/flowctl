@@ -3,18 +3,20 @@
 
 ## ⚡ Khởi Động Nhanh
 
-Khi bắt đầu một session mới, thực hiện **đúng thứ tự** sau:
+Khi bắt đầu một session mới, dùng **MCP tools** (không phải bash — tiết kiệm ~95% token):
 
-```bash
-# 1. Đọc trạng thái workflow hiện tại
-cat workflow-state.json
-
-# 2. Kiểm tra step đang active và agent cần dùng
-bash scripts/workflow.sh status
-
-# 3. Load knowledge graph context
-# (Graphify MCP sẽ auto-load nếu được cấu hình)
 ```
+# 1. Đọc workflow state
+wf_state()              ← thay cho: cat workflow-state.json + bash scripts/workflow.sh status
+
+# 2. Đọc context đầy đủ của step hiện tại
+wf_step_context()       ← thay cho: đọc 5+ files riêng lẻ
+
+# 3. Load graph context (nếu Graphify available)
+graphify_query("project:requirements")
+```
+
+> **Quy tắc token**: Dùng MCP tools trước bash. Bash chỉ dùng cho write operations.
 
 ---
 
@@ -51,6 +53,55 @@ Mở 2 Cursor Agent Tabs:
 ---
 
 ## 🔧 MCP Tools Có Sẵn
+
+### ⚡ Shell Proxy Tools — DÙNG TRƯỚC (token-efficient)
+
+Thay thế bash read operations. Cache tự động, structured JSON output.
+
+```
+wf_state()                      — Workflow state (step, status, blockers, decisions)
+                                  Thay: cat workflow-state.json + bash scripts/workflow.sh status
+                                  Saving: ~1,900 → ~100 tokens (95%)
+
+wf_git(commits?)                — Git snapshot (branch, commits, changed files)
+                                  Thay: git log + git status + git diff --stat
+                                  Saving: ~1,000 → ~80 tokens (92%)
+
+wf_step_context(step?)          — Full step context (state + decisions + blockers + war room)
+                                  Thay: đọc 5+ files riêng lẻ
+                                  Saving: ~5,000 → ~300 tokens (94%)
+
+wf_files(dir?, pattern?, depth?) — Project file listing
+                                  Thay: ls -la + find commands
+                                  Saving: ~500 → ~100 tokens (80%)
+
+wf_read(path, max_lines?, compress?) — Read file with caching
+                                  Thay: cat <file> (cache hit = free)
+                                  Saving: varies, cache hit = ~50 tokens
+
+wf_env()                        — OS, tool versions, paths (cached forever)
+                                  Thay: which + --version commands
+                                  Saving: ~300 → ~50 tokens (83%)
+
+wf_cache_invalidate(scope?)     — Invalidate cache (all|git|state|files)
+                                  Gọi sau khi write/modify state
+```
+
+**Cache tự động invalidate:**
+- Sau mỗi git commit → git cache reset (post-commit hook)
+- Sau mỗi workflow action → state cache reset (SessionStart hook)
+
+**Thứ tự ưu tiên khi cần thông tin:**
+```
+1. wf_step_context()  ← tất cả trong 1 call
+2. wf_state()         ← nếu chỉ cần workflow state
+3. graphify_query()   ← nếu cần knowledge graph
+4. wf_git()           ← nếu cần git context
+5. wf_read()          ← nếu cần đọc file cụ thể
+6. bash [cmd]         ← CHỈ cho write operations
+```
+
+---
 
 ### Graphify Tools (knowledge graph)
 
