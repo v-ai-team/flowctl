@@ -19,8 +19,9 @@
 #   dispatch [--launch|--headless] [--trust] [--dry-run]
 #                            Tạo briefs; launch UI hoặc chạy headless nền
 #   collect                  Gom worker reports vào workflow-state
-#   team <start|sync|status|run>
-#                            PM-only orchestration: dispatch/collect/summary
+#   team <start|delegate|sync|status|run>
+#                            PM-only orchestration: step-based spawn/collect/summary
+#   brainstorm [topic]       One-shot: init (if needed) + step-based delegate
 #   summary                  In summary của step hiện tại
 #   reset <step>             Reset về step cụ thể (cần confirm)
 #   history                  Lịch sử approvals
@@ -689,13 +690,39 @@ cmd_team() {
 
   local step
   step=$(json_get "current_step")
+  if [[ -z "$step" || "$step" == "0" ]]; then
+    echo -e "${YELLOW}Workflow chưa được khởi tạo. Chạy: bash scripts/workflow.sh init${NC}"
+    exit 1
+  fi
+  local step_status
+  step_status=$(json_get "steps.$step.status")
+  local step_name
+  step_name=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d['steps']['$step']['name'])")
+  local role_list
+  role_list=$(python3 -c "
+import json
+d=json.load(open('$STATE_FILE'))
+s=d['steps'].get('$step', {})
+roles=[]
+for r in [s.get('agent','')] + s.get('support_agents',[]):
+    r=(r or '').strip()
+    if r and r not in roles:
+        roles.append('@'+r)
+print(', '.join(roles))
+")
   local dispatch_dir="$REPO_ROOT/workflows/dispatch/step-$step"
   local reports_dir="$dispatch_dir/reports"
   local logs_dir="$dispatch_dir/logs"
 
   case "$action" in
-    start)
-      echo -e "\n${BLUE}${BOLD}[TEAM] PM orchestration start${NC}"
+    start|delegate)
+      echo -e "\n${BLUE}${BOLD}[TEAM] PM step-based delegate${NC}"
+      echo -e "Current step: ${BOLD}$step — $step_name${NC}"
+      echo -e "Spawn roles: ${YELLOW}${role_list}${NC}"
+      if [[ "$step_status" == "pending" ]]; then
+        echo -e "Step đang pending, auto start step trước khi delegate..."
+        cmd_start
+      fi
       echo -e "Dispatch workers headless + trust workspace..."
       cmd_dispatch --headless --trust "$@"
       ;;
@@ -717,16 +744,81 @@ cmd_team() {
       ;;
     run)
       echo -e "\n${BLUE}${BOLD}[TEAM] PM run loop (single cycle)${NC}"
+      echo -e "Current step: ${BOLD}$step — $step_name${NC}"
+      echo -e "Spawn roles: ${YELLOW}${role_list}${NC}"
+      if [[ "$step_status" == "pending" ]]; then
+        echo -e "Step đang pending, auto start step trước khi delegate..."
+        cmd_start
+      fi
       cmd_dispatch --headless --trust "$@"
       echo -e "${YELLOW}Workers đang chạy nền. Sau khi đủ thời gian xử lý, chạy:${NC}"
       echo -e "  ${BOLD}bash scripts/workflow.sh team sync${NC}\n"
       ;;
     *)
       echo -e "${RED}Unknown team action: $action${NC}"
-      echo -e "Usage: bash scripts/workflow.sh team <start|sync|status|run>\n"
+      echo -e "Usage: bash scripts/workflow.sh team <start|delegate|sync|status|run>\n"
       exit 1
       ;;
   esac
+}
+
+cmd_brainstorm() {
+  local project_name=""
+  local auto_sync="false"
+  local wait_seconds="30"
+  local topic_parts=()
+  local delegate_args=()
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --project)
+        project_name="${2:-}"
+        shift 2
+        ;;
+      --sync)
+        auto_sync="true"
+        shift
+        ;;
+      --wait)
+        wait_seconds="${2:-30}"
+        shift 2
+        ;;
+      --launch|--headless|--trust|--dry-run)
+        delegate_args+=("$1")
+        shift
+        ;;
+      *)
+        topic_parts+=("$1")
+        shift
+        ;;
+    esac
+  done
+
+  local topic="${topic_parts[*]}"
+  local step
+  step=$(json_get "current_step")
+
+  if [[ -z "$step" || "$step" == "0" ]]; then
+    local effective_project="$project_name"
+    [[ -z "$effective_project" ]] && effective_project="Auto Brainstorm Project"
+    echo -e "${CYAN}Workflow chưa init, tự khởi tạo project: ${BOLD}${effective_project}${NC}"
+    cmd_init --project "$effective_project"
+    step=$(json_get "current_step")
+  fi
+
+  if [[ -n "$topic" ]]; then
+    echo -e "${CYAN}Brainstorm topic:${NC} $topic"
+  fi
+
+  cmd_team delegate "${delegate_args[@]}"
+
+  if [[ "$auto_sync" == "true" ]]; then
+    if [[ "$wait_seconds" =~ ^[0-9]+$ ]] && [[ "$wait_seconds" -gt 0 ]]; then
+      echo -e "${YELLOW}Đợi ${wait_seconds}s trước khi sync...${NC}"
+      sleep "$wait_seconds"
+    fi
+    cmd_team sync
+  fi
 }
 
 cmd_summary() {
@@ -859,6 +951,7 @@ case "$CMD" in
   dispatch)     cmd_dispatch "$@" ;;
   collect)      cmd_collect ;;
   team)         cmd_team "$@" ;;
+  brainstorm|bs) cmd_brainstorm "$@" ;;
   summary|sum)  cmd_summary ;;
   history|h)    cmd_history ;;
   reset)        cmd_reset "$@" ;;
@@ -875,8 +968,10 @@ case "$CMD" in
     echo -e "  dispatch [--launch|--headless] [--trust] [--dry-run]"
     echo -e "                         Tạo worker briefs + chạy workers"
     echo -e "  collect                Gom worker reports vào workflow-state"
-    echo -e "  team <start|sync|status|run>"
+    echo -e "  team <start|delegate|sync|status|run>"
     echo -e "                         PM-only orchestration cho sub-agents"
+    echo -e "  brainstorm [topic] [--project Name] [--sync] [--wait N] [--dry-run]"
+    echo -e "                         One-shot auto init + delegate theo current step"
     echo -e "  summary                Step summary"
     echo -e "  history                Lịch sử approvals"
     echo -e "  reset <step>           Reset về step cụ thể\n"
