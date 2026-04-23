@@ -46,20 +46,26 @@ cmd_team() {
       ;;
     monitor)
       local stale_seconds="300"
+      local retry_delay_seconds="60"
       while [[ $# -gt 0 ]]; do
         case "$1" in
           --stale-seconds)
             stale_seconds="${2:-300}"
             shift 2
             ;;
+          --retry-delay-seconds)
+            retry_delay_seconds="${2:-60}"
+            shift 2
+            ;;
           *)
             echo -e "${RED}Unknown option for team monitor: $1${NC}"
-            echo -e "Usage: bash scripts/workflow.sh team monitor [--stale-seconds N]\n"
+            echo -e "Usage: bash scripts/workflow.sh team monitor [--stale-seconds N] [--retry-delay-seconds N]\n"
             exit 1
             ;;
         esac
       done
       [[ "$stale_seconds" =~ ^[0-9]+$ ]] || stale_seconds="300"
+      [[ "$retry_delay_seconds" =~ ^[0-9]+$ ]] || retry_delay_seconds="60"
       echo -e "\n${BLUE}${BOLD}[TEAM] PM monitor${NC}"
       python3 - <<PY
 import json
@@ -78,6 +84,7 @@ idem_path = Path("$IDEMPOTENCY_FILE")
 sessions_path = Path("$ROLE_SESSIONS_FILE")
 heartbeats_path = Path("$HEARTBEATS_FILE")
 stale_seconds = int("$stale_seconds")
+retry_delay_seconds = int("$retry_delay_seconds")
 now_ts = time.time()
 
 idem = json.loads(idem_path.read_text(encoding="utf-8")) if idem_path.exists() else {}
@@ -118,6 +125,10 @@ def role_status(role: str):
     pid = entry.get("pid")
     launched = entry.get("status") == "launched"
     completed = entry.get("status") == "completed"
+    retry = entry.get("retry_policy") or {}
+    attempt_count = int(retry.get("attempt_count", 0))
+    max_retries = int(retry.get("max_retries", 3))
+    remaining = max(0, max_retries - attempt_count)
 
     log_path = Path(entry.get("log_path", str(logs_dir / f"{role}.log")))
     log_age = None
@@ -141,6 +152,14 @@ def role_status(role: str):
         except OSError:
             running = False
 
+    log_text = ""
+    if log_path.exists():
+        try:
+            content = log_path.read_text(encoding="utf-8", errors="ignore")
+            log_text = content[-4000:].lower()
+        except Exception:
+            log_text = ""
+
     if has_report or completed:
         status = "done"
     elif launched and running:
@@ -150,14 +169,61 @@ def role_status(role: str):
     else:
         status = "pending"
 
+    permanent_markers = [
+        "failed to trust workspace",
+        "permission denied",
+        "unauthorized",
+        "invalid api key",
+        "command not found",
+        "syntaxerror",
+        "traceback",
+    ]
+    transient_markers = [
+        "timed out",
+        "timeout",
+        "rate limit",
+        "temporarily unavailable",
+        "connection reset",
+        "network",
+        "econn",
+    ]
+
+    policy_class = "policy"
+    if status in ("running", "done"):
+        policy_class = "n/a"
+    elif any(m in log_text for m in permanent_markers):
+        policy_class = "permanent"
+    elif status == "stale" or any(m in log_text for m in transient_markers):
+        policy_class = "transient"
+    else:
+        policy_class = "policy"
+
+    if status == "done":
+        next_action = "none"
+    elif status == "running":
+        next_action = "wait"
+    elif policy_class == "permanent":
+        next_action = "manual-fix"
+    elif policy_class == "transient":
+        if remaining > 0:
+            next_action = f"retry-in-{retry_delay_seconds}s"
+        else:
+            next_action = "retry-exhausted"
+    else:
+        next_action = "inspect-policy"
+
     chat_id = ((sessions.get("roles", {}) or {}).get(role, {}) or {}).get("chat_id", "")
     return {
         "role": role,
         "status": status,
         "pid": pid if isinstance(pid, int) else "-",
         "chat_id": chat_id,
+        "correlation_id": entry.get("correlation_id", ""),
         "log_age": "-" if log_age is None else f"{log_age}s",
         "hb_age": "-" if hb_age is None else f"{hb_age}s",
+        "policy_class": policy_class,
+        "next_action": next_action,
+        "retry_budget": f"{attempt_count}/{max_retries}",
         "report": "yes" if has_report else "no",
     }
 
@@ -175,12 +241,87 @@ print(
 print("")
 for row in rows:
     chat = row["chat_id"][:12] + "..." if row["chat_id"] and len(row["chat_id"]) > 15 else (row["chat_id"] or "-")
+    corr = row["correlation_id"][:28] + "..." if row["correlation_id"] and len(row["correlation_id"]) > 31 else (row["correlation_id"] or "-")
     print(
         f"- @{row['role']}: {row['status']:<7} "
-        f"pid={row['pid']} report={row['report']} log_age={row['log_age']} hb_age={row['hb_age']} chat={chat}"
+        f"pid={row['pid']} report={row['report']} log_age={row['log_age']} hb_age={row['hb_age']} "
+        f"policy={row['policy_class']} action={row['next_action']} retry={row['retry_budget']} "
+        f"chat={chat} corr={corr}"
     )
 print("")
 PY
+      ;;
+    recover)
+      local role=""
+      local mode="resume"
+      local dry_run="false"
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --role)
+            role="${2:-}"
+            shift 2
+            ;;
+          --mode)
+            mode="${2:-resume}"
+            shift 2
+            ;;
+          --dry-run)
+            dry_run="true"
+            shift
+            ;;
+          *)
+            echo -e "${RED}Unknown option for team recover: $1${NC}"
+            echo -e "Usage: bash scripts/workflow.sh team recover --role <name> [--mode resume|retry|rollback] [--dry-run]\n"
+            exit 1
+            ;;
+        esac
+      done
+      role="${role#@}"
+      [[ -n "$role" ]] || { echo -e "${RED}team recover requires --role <name>${NC}\n"; exit 1; }
+      if [[ "$mode" != "resume" && "$mode" != "retry" && "$mode" != "rollback" ]]; then
+        echo -e "${RED}Invalid recover mode: $mode${NC}"
+        echo -e "Allowed modes: resume | retry | rollback\n"
+        exit 1
+      fi
+      echo -e "\n${BLUE}${BOLD}[TEAM] PM recover${NC}"
+      echo -e "Step: ${BOLD}$step${NC} role=@${role} mode=${mode} dry_run=${dry_run}"
+      if [[ "$mode" == "rollback" ]]; then
+        local reports_dir="$REPO_ROOT/workflows/dispatch/step-$step/reports"
+        local logs_dir="$REPO_ROOT/workflows/dispatch/step-$step/logs"
+        local report_path="$reports_dir/${role}-report.md"
+        local log_path="$logs_dir/${role}.log"
+        if [[ "$dry_run" == "true" ]]; then
+          echo -e "${CYAN}[dry-run] would rollback role @${role}:${NC} remove report/log and mark idempotency rolled_back"
+          echo ""
+          exit 0
+        fi
+        rm -f "$report_path" "$log_path"
+        WF_IDEMPOTENCY_FILE="$IDEMPOTENCY_FILE" WF_STEP="$step" WF_ROLE="$role" python3 - <<'PY'
+import json
+import os
+from datetime import datetime
+from pathlib import Path
+
+path = Path(os.environ["WF_IDEMPOTENCY_FILE"])
+data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+key = f"step:{os.environ['WF_STEP']}:role:{os.environ['WF_ROLE']}:mode:headless"
+entry = data.get(key, {})
+retry = entry.get("retry_policy") or {}
+entry["status"] = "rolled_back"
+entry["pid"] = None
+retry["last_failure_class"] = "policy"
+entry["retry_policy"] = retry
+entry["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+data[key] = entry
+path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+PY
+        echo -e "${GREEN}Rollback completed for @${role}.${NC}"
+        echo -e "Next: ${BOLD}bash scripts/workflow.sh team recover --role ${role} --mode retry${NC}\n"
+        exit 0
+      fi
+      local dispatch_args=(--headless --force-run --role "$role")
+      [[ "$dry_run" == "true" ]] && dispatch_args+=(--dry-run)
+      cmd_dispatch "${dispatch_args[@]}"
       ;;
     run)
       echo -e "\n${BLUE}${BOLD}[TEAM] PM run loop (single cycle)${NC}"
@@ -196,7 +337,7 @@ PY
       ;;
     *)
       echo -e "${RED}Unknown team action: $action${NC}"
-      echo -e "Usage: bash scripts/workflow.sh team <start|delegate|sync|status|monitor|run>\n"
+      echo -e "Usage: bash scripts/workflow.sh team <start|delegate|sync|status|monitor|recover|run>\n"
       exit 1
       ;;
   esac

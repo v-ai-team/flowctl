@@ -17,10 +17,10 @@
 #   blocker add "desc"       Thêm blocker
 #   blocker resolve <id>     Resolve blocker
 #   decision "desc"          Ghi nhận quyết định
-#   dispatch [--launch|--headless] [--trust] [--dry-run] [--force-run]
+#   dispatch [--launch|--headless] [--trust] [--dry-run] [--force-run] [--max-retries N]
 #                            Tạo briefs; launch UI hoặc chạy headless nền
 #   collect                  Gom worker reports vào workflow-state
-#   team <start|delegate|sync|status|monitor|run>
+#   team <start|delegate|sync|status|monitor|recover|run>
 #                            PM-only orchestration: step-based spawn/collect/summary
 #   brainstorm [topic]       One-shot: init (if needed) + step-based delegate
 #   summary                  In summary của step hiện tại
@@ -395,10 +395,10 @@ case "$CMD" in
     echo -e "  blocker add \"desc\"     Thêm blocker"
     echo -e "  blocker resolve <id>   Resolve blocker"
     echo -e "  decision \"desc\"        Ghi nhận quyết định"
-    echo -e "  dispatch [--launch|--headless] [--trust] [--dry-run] [--force-run]"
+    echo -e "  dispatch [--launch|--headless] [--trust] [--dry-run] [--force-run] [--max-retries N] [--role name]"
     echo -e "                         Tạo worker briefs + chạy workers"
     echo -e "  collect                Gom worker reports vào workflow-state"
-    echo -e "  team <start|delegate|sync|status|monitor|run>"
+    echo -e "  team <start|delegate|sync|status|monitor|recover|run>"
     echo -e "                         PM-only orchestration cho sub-agents"
     echo -e "  brainstorm [topic] [--project Name] [--sync] [--wait N] [--dry-run]"
     echo -e "                         One-shot auto init + delegate theo current step"

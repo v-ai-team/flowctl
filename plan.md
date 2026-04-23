@@ -43,9 +43,9 @@ Build a step-based agent orchestration flow where:
 - [x] Persist `role -> chatId` and implement `create-chat` + `resume` strategy
 - [x] Add `team monitor` for near-realtime progress (status, stale, blocked, done)
 - [x] Parse `stream-json` events into normalized heartbeat records
-- [ ] Add correlation ID (`workflowId/runId/step/role`) across logs and reports
-- [ ] Add timeout + retry policy classes (transient vs permanent vs policy)
-- [ ] Add failure recovery runbook (resume, retry, rollback rules)
+- [x] Add correlation ID (`workflowId/runId/step/role`) across logs and reports
+- [x] Add timeout + retry policy classes (transient vs permanent vs policy)
+- [x] Add failure recovery runbook (resume, retry, rollback rules)
 
 ### P2 — Production-Grade Governance
 
@@ -69,6 +69,8 @@ Build a step-based agent orchestration flow where:
   - `bash scripts/workflow.sh collect`
 - Monitor role runtime state:
   - `bash scripts/workflow.sh team monitor --stale-seconds 300`
+- Recover failed role safely:
+  - `bash scripts/workflow.sh team recover --role <role> --mode resume|retry|rollback --dry-run`
 - Check gate:
   - `bash scripts/workflow.sh gate-check`
 - Approve step (when gate passes):
@@ -97,6 +99,9 @@ Build a step-based agent orchestration flow where:
 - [x] Implement role session persistence (`role-sessions.json`) with resume support
 - [x] Add `team monitor` heartbeat view (running/blocked/stale/done)
 - [x] Parse stream-json runtime events into `workflows/runtime/heartbeats.jsonl`
+- [x] Add correlation ID metadata (`workflowId/runId/step/role`) to heartbeats/idempotency and monitor output
+- [x] Add timeout/retry policy metadata + monitor classification (`transient`/`permanent`/`policy`)
+- [x] Add recovery runbook and `team recover` command flow (`resume`/`retry`/`rollback`)
 - [x] Add TDD regression suite to protect legacy business logic (`scripts/test-workflow-tdd-regression.sh`)
 - [x] Expand TDD regression coverage for lock conflict, collect idempotency, reset flow, skip-gate audit, and CLI validation
 - [x] Split Phase 1: extract shared modules (`common/state/lock/gate`) into `scripts/workflow/lib/*` with behavior preserved

@@ -6,6 +6,8 @@ cmd_dispatch() {
   local trust_workspace="false"
   local dry_run="false"
   local force_run="false"
+  local max_retries="3"
+  local role_filter=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --launch) auto_launch="true" ;;
@@ -13,14 +15,18 @@ cmd_dispatch() {
       --trust) trust_workspace="true" ;;
       --dry-run) dry_run="true" ;;
       --force-run) force_run="true" ;;
+      --max-retries) max_retries="${2:-3}"; shift ;;
+      --role) role_filter="${2:-}"; shift ;;
       *)
         echo -e "${RED}Unknown option for dispatch: $1${NC}"
-        echo -e "Usage: bash scripts/workflow.sh dispatch [--launch|--headless] [--trust] [--dry-run] [--force-run]\n"
+        echo -e "Usage: bash scripts/workflow.sh dispatch [--launch|--headless] [--trust] [--dry-run] [--force-run] [--max-retries N] [--role name]\n"
         exit 1
         ;;
     esac
     shift
   done
+  [[ "$max_retries" =~ ^[0-9]+$ ]] || max_retries="3"
+  role_filter="${role_filter#@}"
 
   if [[ "$auto_launch" == "true" && "$headless" == "true" ]]; then
     echo -e "${RED}Không thể dùng đồng thời --launch và --headless.${NC}"
@@ -30,6 +36,25 @@ cmd_dispatch() {
 
   local step
   step=$(wf_require_initialized_workflow)
+  local workflow_id
+  workflow_id=$(WF_STATE_FILE="$STATE_FILE" python3 - <<'PY'
+import json
+import os
+import uuid
+from pathlib import Path
+
+path = Path(os.environ["WF_STATE_FILE"])
+data = json.loads(path.read_text(encoding="utf-8"))
+wid = (data.get("workflow_id") or "").strip()
+if not wid:
+    wid = f"wf-{uuid.uuid4()}"
+    data["workflow_id"] = wid
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+print(wid)
+PY
+)
+  local run_id
+  run_id="run-$(date -u '+%Y%m%dT%H%M%SZ')-$RANDOM"
 
   local dispatch_dir="$REPO_ROOT/workflows/dispatch/step-$step"
   local reports_dir="$dispatch_dir/reports"
@@ -107,12 +132,13 @@ print("OK")
 PY
 
   echo -e "\n${GREEN}${BOLD}Dispatch bundles đã tạo:${NC} ${BOLD}${dispatch_dir#$REPO_ROOT/}${NC}"
+  echo -e "Trace: workflow_id=${BOLD}${workflow_id}${NC} run_id=${BOLD}${run_id}${NC}"
   echo -e "Dùng các lệnh sau để chạy worker sessions song song:\n"
 
   local commands_file="$dispatch_dir/agent-commands.txt"
   local trust_flag=""
   [[ "$trust_workspace" == "true" ]] && trust_flag="--trust"
-  WF_STEP="$step" WF_STATE="$STATE_FILE" WF_REPO="$REPO_ROOT" WF_DISPATCH="$dispatch_dir" WF_COMMANDS="$commands_file" WF_TRUST="$trust_flag" WF_ROLE_SESSIONS="$ROLE_SESSIONS_FILE" python3 - <<'PY'
+  WF_STEP="$step" WF_STATE="$STATE_FILE" WF_REPO="$REPO_ROOT" WF_DISPATCH="$dispatch_dir" WF_COMMANDS="$commands_file" WF_TRUST="$trust_flag" WF_ROLE_SESSIONS="$ROLE_SESSIONS_FILE" WF_ROLE_FILTER="$role_filter" python3 - <<'PY'
 import json
 import os
 from pathlib import Path
@@ -124,6 +150,7 @@ dispatch_dir = Path(os.environ["WF_DISPATCH"])
 commands_file = Path(os.environ["WF_COMMANDS"])
 trust_flag = os.environ.get("WF_TRUST", "").strip()
 role_sessions_path = Path(os.environ["WF_ROLE_SESSIONS"])
+role_filter = (os.environ.get("WF_ROLE_FILTER", "") or "").strip()
 
 role_sessions = {}
 if role_sessions_path.exists():
@@ -137,6 +164,8 @@ roles = []
 for role in [primary] + supports:
     if role and role not in roles:
         roles.append(role)
+if role_filter:
+    roles = [r for r in roles if r == role_filter]
 
 machine_lines = []
 for role in roles:
@@ -156,6 +185,11 @@ for role in roles:
 commands_file.write_text("\n".join(machine_lines) + ("\n" if machine_lines else ""), encoding="utf-8")
 PY
 
+  if [[ -n "$role_filter" && ! -s "$commands_file" ]]; then
+    echo -e "${YELLOW}Không tìm thấy role '$role_filter' trong step $step.${NC}\n"
+    exit 1
+  fi
+
   if [[ "$headless" == "true" ]]; then
     local logs_dir="$dispatch_dir/logs"
     wf_ensure_dir "$logs_dir"
@@ -166,6 +200,7 @@ PY
       local report_path="$reports_dir/${role}-report.md"
       local log_path="$logs_dir/${role}.log"
       local capture_script="$REPO_ROOT/scripts/workflow/lib/stream_json_capture.py"
+      local correlation_id="${workflow_id}/${run_id}/${step}/${role}"
       local role_chat_id
       role_chat_id=$(WF_ROLE_SESSIONS_FILE="$ROLE_SESSIONS_FILE" WF_ROLE="$role" python3 - <<'PY'
 import json
@@ -214,22 +249,23 @@ PY
         base_cmd="agent ${trust_part}--workspace \"$REPO_ROOT\" --resume \"$role_chat_id\""
       fi
       local headless_cmd
-      headless_cmd="${base_cmd} -p \"Thực hiện task theo brief, và GHI report đầy đủ vào file ${report_path}. Chỉ trả lời ngắn 'done' sau khi ghi file.\" --output-format stream-json --stream-partial-output 2>&1 | python3 \"${capture_script}\" --step \"${step}\" --role \"${role}\" --log-path \"${log_path}\" --heartbeats-path \"${HEARTBEATS_FILE}\""
+      headless_cmd="${base_cmd} -p \"Thực hiện task theo brief, và GHI report đầy đủ vào file ${report_path}. Chỉ trả lời ngắn 'done' sau khi ghi file.\" --output-format stream-json --stream-partial-output 2>&1 | python3 \"${capture_script}\" --step \"${step}\" --role \"${role}\" --workflow-id \"${workflow_id}\" --run-id \"${run_id}\" --log-path \"${log_path}\" --heartbeats-path \"${HEARTBEATS_FILE}\""
       local idem_key="step:${step}:role:${role}:mode:headless"
       local idem_decision
-      idem_decision=$(WF_IDEMPOTENCY_FILE="$IDEMPOTENCY_FILE" WF_IDEMPOTENCY_KEY="$idem_key" WF_FORCE_RUN="$force_run" python3 - <<'PY'
+      idem_decision=$(WF_IDEMPOTENCY_FILE="$IDEMPOTENCY_FILE" WF_IDEMPOTENCY_KEY="$idem_key" WF_FORCE_RUN="$force_run" WF_MAX_RETRIES="$max_retries" python3 - <<'PY'
 import json
 import os
-from datetime import datetime
 from pathlib import Path
 
 path = Path(os.environ["WF_IDEMPOTENCY_FILE"])
 key = os.environ["WF_IDEMPOTENCY_KEY"]
 force_run = os.environ.get("WF_FORCE_RUN", "false").lower() == "true"
+max_retries = int(os.environ.get("WF_MAX_RETRIES", "3"))
 data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 entry = data.get(key, {})
 status = entry.get("status", "")
 pid = entry.get("pid")
+attempt_count = int((entry.get("retry_policy") or {}).get("attempt_count", 0))
 running = False
 if isinstance(pid, int) and pid > 0:
     try:
@@ -244,6 +280,8 @@ elif status == "launched" and running:
     print(f"SKIP|already launched with running pid={pid}")
 elif status == "completed":
     print("SKIP|already completed; use --force-run to rerun")
+elif attempt_count >= max_retries:
+    print(f"SKIP|retry budget exhausted ({attempt_count}/{max_retries}); use --force-run")
 else:
     reason = "first launch" if not status else f"resume from status={status}"
     print(f"LAUNCH|{reason}")
@@ -261,7 +299,7 @@ PY
       fi
       nohup bash -lc "$headless_cmd" >/dev/null 2>&1 &
       local worker_pid=$!
-      WF_IDEMPOTENCY_FILE="$IDEMPOTENCY_FILE" WF_IDEMPOTENCY_KEY="$idem_key" WF_STEP="$step" WF_ROLE="$role" WF_PID="$worker_pid" WF_LOG="$log_path" WF_REPORT="$report_path" python3 - <<'PY'
+      WF_IDEMPOTENCY_FILE="$IDEMPOTENCY_FILE" WF_IDEMPOTENCY_KEY="$idem_key" WF_STEP="$step" WF_ROLE="$role" WF_PID="$worker_pid" WF_LOG="$log_path" WF_REPORT="$report_path" WF_WORKFLOW_ID="$workflow_id" WF_RUN_ID="$run_id" WF_CORRELATION_ID="$correlation_id" WF_MAX_RETRIES="$max_retries" python3 - <<'PY'
 import json
 import os
 from datetime import datetime
@@ -270,13 +308,26 @@ from pathlib import Path
 path = Path(os.environ["WF_IDEMPOTENCY_FILE"])
 data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 key = os.environ["WF_IDEMPOTENCY_KEY"]
+prev = data.get(key, {})
+prev_retry = prev.get("retry_policy") or {}
+attempt_count = int(prev_retry.get("attempt_count", 0)) + 1
+max_retries = int(os.environ.get("WF_MAX_RETRIES", "3"))
 data[key] = {
     "status": "launched",
     "step": int(os.environ["WF_STEP"]),
     "role": os.environ["WF_ROLE"],
+    "workflow_id": os.environ["WF_WORKFLOW_ID"],
+    "run_id": os.environ["WF_RUN_ID"],
+    "correlation_id": os.environ["WF_CORRELATION_ID"],
     "pid": int(os.environ["WF_PID"]),
     "log_path": os.environ["WF_LOG"],
     "report_path": os.environ["WF_REPORT"],
+    "retry_policy": {
+        "attempt_count": attempt_count,
+        "max_retries": max_retries,
+        "last_launch_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "last_failure_class": "",
+    },
     "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 }
 path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")

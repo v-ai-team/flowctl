@@ -15,9 +15,9 @@ This folder contains modular building blocks for the workflow engine.
 - `gate.sh`
   - Gate evaluation and gate report audit trail.
 - `dispatch.sh`
-  - Worker dispatch/collect, role session persistence (`role-sessions.json`), stream-json heartbeat capture (`heartbeats.jsonl`), and idempotency handling for role-step execution.
+  - Worker dispatch/collect, role session persistence (`role-sessions.json`), stream-json heartbeat capture (`heartbeats.jsonl`), correlation IDs (`workflowId/runId/step/role`), retry budget metadata, role-targeted dispatch (`--role`), and idempotency handling for role-step execution.
 - `orchestration.sh`
-  - Team-level orchestration commands (`team`, `brainstorm`).
+  - Team-level orchestration commands (`team`, `brainstorm`) including runtime monitor policy classification (`transient`/`permanent`/`policy`) and recovery action routing (`recover`).
 - `reporting.sh`
   - Read/report/reset commands (`summary`, `history`, `reset`).
 
