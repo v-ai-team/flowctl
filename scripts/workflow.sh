@@ -24,6 +24,7 @@
 #                            PM-only orchestration: step-based spawn/collect/summary
 #   brainstorm [topic]       One-shot: init (if needed) + step-based delegate
 #   summary                  In summary của step hiện tại
+#   release-dashboard        PM release summary cho approve decision
 #   reset <step>             Reset về step cụ thể (cần confirm)
 #   history                  Lịch sử approvals
 # ============================================================
@@ -40,6 +41,10 @@ source "$LIB_DIR/config.sh"
 source "$LIB_DIR/common.sh"
 # shellcheck source=/dev/null
 source "$LIB_DIR/state.sh"
+# shellcheck source=/dev/null
+source "$LIB_DIR/evidence.sh"
+# shellcheck source=/dev/null
+source "$LIB_DIR/traceability.sh"
 # shellcheck source=/dev/null
 source "$LIB_DIR/lock.sh"
 # shellcheck source=/dev/null
@@ -243,6 +248,26 @@ cmd_approve() {
     wf_json_set "overall_status" "completed"
     echo -e "\n${GREEN}${BOLD}🎉 WORKFLOW HOÀN THÀNH! Project đã release.${NC}\n"
   fi
+  local manifest_rel="workflows/runtime/evidence/step-${step}-manifest.json"
+  local trace_row
+  trace_row=$(wf_traceability_record_approval "$step" "$by" "$([[ "$skip_gate" == "true" ]] && echo "bypass" || echo "approved")" "$manifest_rel" 2>/dev/null || true)
+  if [[ -n "$trace_row" ]]; then
+    local trace_event_id trace_payload trace_result
+    trace_event_id=$(TRACE_ROW="$trace_row" python3 - <<'PY'
+import json, os
+row=json.loads(os.environ["TRACE_ROW"])
+print(row.get("event_id",""))
+PY
+)
+    trace_payload=$(TRACE_ROW="$trace_row" python3 - <<'PY'
+import json, os
+row=json.loads(os.environ["TRACE_ROW"])
+print(json.dumps(row.get("payload", {}), ensure_ascii=False))
+PY
+)
+    trace_result=$(wf_traceability_append_event "$trace_event_id" "approval" "$trace_payload" 2>/dev/null || true)
+    [[ -n "$trace_result" ]] && echo -e "${CYAN}${trace_result}${NC}"
+  fi
 }
 
 cmd_gate_check() {
@@ -354,7 +379,7 @@ CMD="${1:-status}"
 shift || true
 
 case "$CMD" in
-  init|start|gate-check|approve|reject|conditional|blocker|decision|dispatch|collect|team|reset|brainstorm)
+  init|start|gate-check|approve|reject|conditional|blocker|decision|dispatch|collect|team|reset|brainstorm|release-dashboard)
     wf_acquire_workflow_lock
     ;;
   *)
@@ -383,6 +408,7 @@ case "$CMD" in
   team)         cmd_team "$@" ;;
   brainstorm|bs) cmd_brainstorm "$@" ;;
   summary|sum)  cmd_summary ;;
+  release-dashboard|dashboard) cmd_release_dashboard "$@" ;;
   history|h)    cmd_history ;;
   reset)        cmd_reset "$@" ;;
   help|--help|-h)
@@ -405,6 +431,7 @@ case "$CMD" in
     echo -e "  brainstorm [topic] [--project Name] [--sync] [--wait N] [--dry-run]"
     echo -e "                         One-shot auto init + delegate theo current step"
     echo -e "  summary                Step summary"
+    echo -e "  release-dashboard      PM release summary (gate/evidence/traceability/budget)"
     echo -e "  history                Lịch sử approvals"
     echo -e "  reset <step>           Reset về step cụ thể\n"
     ;;

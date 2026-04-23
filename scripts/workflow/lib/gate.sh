@@ -44,6 +44,11 @@ PY
 
 wf_evaluate_gate() {
   local step="$1"
+  local evidence_result
+  if ! evidence_result=$(wf_evidence_verify_step "$step" 2>/dev/null); then
+    echo "GATE_FAIL|Evidence integrity failed: ${evidence_result#EVIDENCE_FAIL|}"
+    return 1
+  fi
   python3 - <<PY
 import json
 from pathlib import Path

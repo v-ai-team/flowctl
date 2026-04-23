@@ -573,12 +573,38 @@ PY
 
   echo -e "\n${GREEN}${BOLD}Collect hoàn tất.${NC}"
   echo -e "${collect_output}"
+  local evidence_capture
+  evidence_capture=$(wf_evidence_capture_step "$step" 2>/dev/null || true)
+  if [[ -n "$evidence_capture" ]]; then
+    echo -e "${CYAN}${evidence_capture}${NC}"
+  fi
   local rf
   for rf in "$reports_dir"/*-report.md; do
     [[ -f "$rf" ]] || continue
     local role_done="${rf##*/}"
     role_done="${role_done%-report.md}"
     wf_budget_mark_role_completed "$step" "$role_done"
+    local report_rel="${rf#$REPO_ROOT/}"
+    local manifest_rel="workflows/runtime/evidence/step-${step}-manifest.json"
+    local trace_row
+    trace_row=$(wf_traceability_record_task "$step" "$role_done" "$report_rel" "$manifest_rel" 2>/dev/null || true)
+    if [[ -n "$trace_row" ]]; then
+      local trace_event_id trace_payload trace_result
+      trace_event_id=$(TRACE_ROW="$trace_row" python3 - <<'PY'
+import json, os
+row=json.loads(os.environ["TRACE_ROW"])
+print(row.get("event_id",""))
+PY
+)
+      trace_payload=$(TRACE_ROW="$trace_row" python3 - <<'PY'
+import json, os
+row=json.loads(os.environ["TRACE_ROW"])
+print(json.dumps(row.get("payload", {}), ensure_ascii=False))
+PY
+)
+      trace_result=$(wf_traceability_append_event "$trace_event_id" "task" "$trace_payload" 2>/dev/null || true)
+      [[ -n "$trace_result" ]] && echo -e "${CYAN}${trace_result}${NC}"
+    fi
   done
   echo -e "Kiểm tra nhanh: ${BOLD}bash scripts/workflow.sh summary${NC}\n"
 }

@@ -10,6 +10,10 @@ This folder contains modular building blocks for the workflow engine.
   - Shared shell helpers and output formatting (`wf_now`, `wf_today`, `wf_ensure_dir`, colors).
 - `state.sh`
   - State read/write helpers and workflow metadata helpers.
+- `evidence.sh`
+  - Immutable evidence manifest capture and checksum verification for step artifacts.
+- `traceability.sh`
+  - Append-only traceability map linking requirement, task, run metadata, evidence, and approval decisions.
 - `lock.sh`
   - Concurrency control (`wf_acquire_workflow_lock`, stale lock reclaim).
 - `gate.sh`
@@ -21,7 +25,7 @@ This folder contains modular building blocks for the workflow engine.
 - `orchestration.sh`
   - Team-level orchestration commands (`team`, `brainstorm`) including runtime monitor policy classification (`transient`/`permanent`/`policy`), budget heartbeat (`% used`, `eta_to_cap`, breaker state), and recovery action routing (`recover`).
 - `reporting.sh`
-  - Read/report/reset commands (`summary`, `history`, `reset`).
+  - Read/report/reset commands (`summary`, `history`, `release-dashboard`, `reset`).
 
 ## Entry Point Contract
 

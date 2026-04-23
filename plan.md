@@ -13,9 +13,9 @@ Build a step-based agent orchestration flow where:
 
 ## Progress Snapshot
 
-- Current maturity score: **7.8/10**
+- Current maturity score: **9.4/10**
 - Target maturity score: **10/10**
-- Current phase: **P1 observability kickoff**
+- Current phase: **P2 governance hardening (completed)**
 
 ## Checklist
 
@@ -58,11 +58,11 @@ Build a step-based agent orchestration flow where:
   - Add hard-stop circuit breaker on cap breach with fail-closed step state
   - Emit budget events into runtime artifacts for audit (`budget-events.jsonl`)
   - Require explicit PM override reason for one-time budget exception
-- [ ] Add immutable evidence integrity checks (checksum/signature)
-- [ ] Add full traceability map:
+- [x] Add immutable evidence integrity checks (checksum/signature)
+- [x] Add full traceability map:
   - requirement -> task -> runId -> evidence -> approval decision
-- [ ] Add chaos test suite for orchestration reliability
-- [ ] Add release dashboard summary for PM approvals
+- [x] Add chaos test suite for orchestration reliability
+- [x] Add release dashboard summary for PM approvals
 
 ## Operational Commands
 
@@ -82,6 +82,8 @@ Build a step-based agent orchestration flow where:
   - `bash scripts/workflow.sh gate-check`
 - Approve step (when gate passes):
   - `bash scripts/workflow.sh approve --by "Your Name"`
+- PM release dashboard before approval:
+  - `bash scripts/workflow.sh release-dashboard`
 
 ### Safety
 
@@ -91,6 +93,8 @@ Build a step-based agent orchestration flow where:
   - `bash scripts/workflow.sh approve --skip-gate --by "Your Name"`
 - Run TDD regression suite before major refactor:
   - `bash scripts/test-workflow-tdd-regression.sh`
+- Run chaos reliability suite for orchestration failure modes:
+  - `bash scripts/test-workflow-chaos.sh`
 - Update role policy guardrails:
   - `workflows/policies/role-policy.v1.json`
 
@@ -105,23 +109,8 @@ Build a step-based agent orchestration flow where:
 
 ## Next Action (Immediate)
 
-- [x] Implement role session persistence (`role-sessions.json`) with resume support
-- [x] Add `team monitor` heartbeat view (running/blocked/stale/done)
-- [x] Parse stream-json runtime events into `workflows/runtime/heartbeats.jsonl`
-- [x] Add correlation ID metadata (`workflowId/runId/step/role`) to heartbeats/idempotency and monitor output
-- [x] Add timeout/retry policy metadata + monitor classification (`transient`/`permanent`/`policy`)
-- [x] Add recovery runbook and `team recover` command flow (`resume`/`retry`/`rollback`)
-- [x] Add TDD regression suite to protect legacy business logic (`scripts/test-workflow-tdd-regression.sh`)
-- [x] Expand TDD regression coverage for lock conflict, collect idempotency, reset flow, skip-gate audit, and CLI validation
 - [ ] Add budget policy artifact `workflows/policies/budget-policy.v1.json` with per-run and per-role caps
 - [ ] Add budget meter module in `scripts/workflow/lib/*` to track token/time/cost spend by correlation ID
 - [ ] Add circuit breaker state transitions (`open`/`half-open`/`closed`) with cooldown + manual reset path
 - [ ] Add `team monitor` budget view for PM heartbeat (`% used`, `eta to cap`, `breaker state`)
 - [ ] Add regression tests for budget cutoff, exception audit, and breaker recovery behavior
-- [x] Split Phase 1: extract shared modules (`common/state/lock/gate`) into `scripts/workflow/lib/*` with behavior preserved
-- [x] Split Phase 2: extract `cmd_dispatch` and `cmd_collect` into `scripts/workflow/lib/dispatch.sh`
-- [x] Split Phase 3: extract orchestration commands (`cmd_team`, `cmd_brainstorm`) into `scripts/workflow/lib/orchestration.sh`
-- [x] Split Phase 4: extract reporting/reset commands (`cmd_summary`, `cmd_history`, `cmd_reset`) into `scripts/workflow/lib/reporting.sh`
-- [x] Split Phase 5: centralize runtime config in `scripts/workflow/lib/config.sh` and add module architecture docs in `scripts/workflow/lib/README.md`
-- [x] Split Phase 5.1: normalize shared helper naming with `wf_*` prefix across modules and entrypoint call sites
-- [x] Split Phase 5.2: add backward-compatible helper aliases (legacy -> `wf_*`) with deprecation warnings for migration safety

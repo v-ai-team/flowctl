@@ -5,6 +5,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKFLOW="$REPO_ROOT/scripts/workflow.sh"
 STATE_FILE="$REPO_ROOT/workflow-state.json"
 RUNTIME_DIR="$REPO_ROOT/workflows/runtime"
+TRACEABILITY_FILE="$RUNTIME_DIR/traceability-map.jsonl"
 POLICY_FILE="$REPO_ROOT/workflows/policies/budget-policy.v1.json"
 BUDGET_STATE_FILE="$REPO_ROOT/workflows/runtime/budget-state.json"
 TEST_ROOT="$REPO_ROOT/workflows/evidence/tdd"
@@ -34,6 +35,7 @@ cleanup() {
     cp "$BACKUP_POLICY" "$POLICY_FILE"
   fi
   rm -rf "$REPO_ROOT/.workflow-lock" 2>/dev/null || true
+  rm -f "$TRACEABILITY_FILE" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -186,6 +188,9 @@ counts_after_collect_1="$(get_step_counts)"
 
 summary_after_collect="$(bash "$WORKFLOW" summary)"
 assert_contains "$summary_after_collect" "Deliverables (4)" "collect should merge deliverables"
+dashboard_after_collect="$(bash "$WORKFLOW" release-dashboard --step 1 --no-write)"
+assert_contains "$dashboard_after_collect" "Release Dashboard (PM Approval)" "release dashboard command should render"
+assert_contains "$dashboard_after_collect" "approval_ready: no" "release dashboard should reflect pending gate state"
 decisions_count="$(python3 - <<PY
 import json
 d=json.load(open("$STATE_FILE"))
@@ -198,6 +203,13 @@ if [[ "$decisions_count" -lt 2 ]]; then
   exit 1
 fi
 log "PASS: collect should merge decisions (count=$decisions_count)"
+trace_after_collect="$(python3 - <<PY
+from pathlib import Path
+p=Path("$TRACEABILITY_FILE")
+print(p.read_text(encoding="utf-8") if p.exists() else "")
+PY
+)"
+assert_contains "$trace_after_collect" "\"event_type\": \"task\"" "collect should emit traceability task events"
 
 expect_success "Repeated collect should be idempotent" bash "$WORKFLOW" collect
 counts_after_collect_2="$(get_step_counts)"
@@ -223,7 +235,16 @@ if [[ -z "$blocker_id" ]]; then
 fi
 expect_success "Resolve blocker" bash "$WORKFLOW" blocker resolve "$blocker_id"
 expect_success "Gate passes after blocker resolution" bash "$WORKFLOW" gate-check
+dashboard_after_gate="$(bash "$WORKFLOW" release-dashboard --step 1 --no-write)"
+assert_contains "$dashboard_after_gate" "approval_ready: yes" "release dashboard should mark approval readiness"
 expect_success "Approve advances step when gate passes" bash "$WORKFLOW" approve --by "TDD"
+trace_after_approve="$(python3 - <<PY
+from pathlib import Path
+p=Path("$TRACEABILITY_FILE")
+print(p.read_text(encoding="utf-8") if p.exists() else "")
+PY
+)"
+assert_contains "$trace_after_approve" "\"event_type\": \"approval\"" "approve should emit traceability approval event"
 
 current_step="$(python3 -c "import json;d=json.load(open('$STATE_FILE'));print(d['current_step'])")"
 assert_contains "$current_step" "2" "approve should advance to step 2"

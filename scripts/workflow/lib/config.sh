@@ -15,6 +15,9 @@ ROLE_POLICY_FILE="$REPO_ROOT/workflows/policies/role-policy.v1.json"
 BUDGET_POLICY_FILE="$REPO_ROOT/workflows/policies/budget-policy.v1.json"
 BUDGET_STATE_FILE="$REPO_ROOT/workflows/runtime/budget-state.json"
 BUDGET_EVENTS_FILE="$REPO_ROOT/workflows/runtime/budget-events.jsonl"
+EVIDENCE_DIR="$REPO_ROOT/workflows/runtime/evidence"
+TRACEABILITY_FILE="$REPO_ROOT/workflows/runtime/traceability-map.jsonl"
+RELEASE_DASHBOARD_DIR="$REPO_ROOT/workflows/runtime/release-dashboard"
 
 # Module directory for dynamic source in entrypoint.
 LIB_DIR="$REPO_ROOT/scripts/workflow/lib"
