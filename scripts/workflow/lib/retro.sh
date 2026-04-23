@@ -74,13 +74,16 @@ if mercs_used:
 if n_decisions > 5:
     patterns.append(f"Step {step}: high decision count ({n_decisions}) — consider splitting")
 
+blocker_patterns = [b.split(":")[1] for b in blockers_by_type]
+blocker_types = list(set(blocker_patterns))
+
 retro = {
     "step": step,
     "step_name": "$step_name",
     "timestamp": datetime.now().isoformat(),
     "n_decisions": n_decisions,
     "blocker_counts": blocker_counts,
-    "blocker_types": blocker_types := list(set(blocker_patterns := [b.split(":")[1] for b in blockers_by_type])),
+    "blocker_types": blocker_types,
     "mercenaries_used": list(set(mercs_used)),
     "patterns": patterns,
 }
@@ -117,7 +120,7 @@ else:
     print(f'  Blockers         : none')
 mu = d.get('mercenaries_used', [])
 if mu:
-    print(f'  Mercenaries used : {', '.join(mu)}')
+    print('  Mercenaries used : ' + ', '.join(mu))
 patterns = d.get('patterns', [])
 if patterns:
     print()

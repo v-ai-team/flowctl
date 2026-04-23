@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 
 # Centralized runtime/config paths for workflow engine.
-# WORKFLOW_ROOT can be injected by caller; fallback keeps module usable standalone.
+# WORKFLOW_ROOT: nơi chứa workflow engine/scripts (global package hoặc local repo).
+# PROJECT_ROOT: project đang được điều phối workflow (mặc định current working dir).
 : "${WORKFLOW_ROOT:=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)}"
+: "${PROJECT_ROOT:=$PWD}"
 
-REPO_ROOT="$WORKFLOW_ROOT"
+REPO_ROOT="$PROJECT_ROOT"
 STATE_FILE="$REPO_ROOT/workflow-state.json"
 QA_GATE_FILE="$REPO_ROOT/workflows/gates/qa-gate.v1.json"
 WORKFLOW_LOCK_DIR="$REPO_ROOT/.workflow-lock"
@@ -20,4 +22,4 @@ TRACEABILITY_FILE="$REPO_ROOT/workflows/runtime/traceability-map.jsonl"
 RELEASE_DASHBOARD_DIR="$REPO_ROOT/workflows/runtime/release-dashboard"
 
 # Module directory for dynamic source in entrypoint.
-LIB_DIR="$REPO_ROOT/scripts/workflow/lib"
+LIB_DIR="$WORKFLOW_ROOT/scripts/workflow/lib"

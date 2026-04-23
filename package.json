@@ -4,8 +4,12 @@
   "type": "module",
   "description": "IT Product Team Workflow — MCP servers",
   "private": true,
+  "bin": {
+    "workflow": "./bin/workflow"
+  },
   "scripts": {
-    "setup-hooks": "node scripts/setup-git-hooks.mjs"
+    "setup-hooks": "node scripts/setup-git-hooks.mjs",
+    "workflow": "workflow"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0"

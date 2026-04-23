@@ -4,7 +4,8 @@
 # Quản lý workflow state, approvals, và transitions
 #
 # Usage:
-#   bash scripts/workflow.sh <command> [args]
+#   workflow <command> [args]
+#   bash scripts/workflow.sh <command> [args]   # backward-compatible
 #
 # Commands:
 #   init --project "Name"    Khởi tạo workflow cho project mới
@@ -16,6 +17,7 @@
 #   conditional "items"      Approve có điều kiện
 #   blocker add "desc"       Thêm blocker
 #   blocker resolve <id>     Resolve blocker
+#   blocker reconcile        Auto-resolve blockers khi điều kiện đã thỏa
 #   decision "desc"          Ghi nhận quyết định
 #   dispatch [--launch|--headless] [--trust] [--dry-run] [--force-run] [--max-retries N] [--role name] [--budget-override-reason text]
 #                            Tạo briefs; launch UI hoặc chạy headless nền
@@ -32,6 +34,8 @@
 set -euo pipefail
 
 WORKFLOW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_ROOT="${PROJECT_ROOT:-$PWD}"
+WORKFLOW_CLI_CMD="${WORKFLOW_CLI_CMD:-workflow}"
 
 # ── Library modules ───────────────────────────────────────────
 LIB_DIR="$WORKFLOW_ROOT/scripts/workflow/lib"
@@ -70,14 +74,106 @@ source "$LIB_DIR/reporting.sh"
 
 # ── Commands ─────────────────────────────────────────────────
 
+ensure_project_scaffold() {
+  local overwrite_existing="${1:-false}"
+  local template_state="$WORKFLOW_ROOT/templates/workflow-state.template.json"
+  local had_state="false"
+  local had_mcp="false"
+  local had_shell_proxy="false"
+  local had_settings="false"
+  local state_status="skipped"
+  local mcp_status="skipped"
+  local shell_proxy_status="skipped"
+  local settings_status="skipped"
+
+  mkdir -p "$PROJECT_ROOT/.cursor" "$PROJECT_ROOT/.claude"
+
+  [[ -f "$STATE_FILE" ]] && had_state="true"
+  [[ -f "$PROJECT_ROOT/.cursor/mcp.json" ]] && had_mcp="true"
+  [[ -f "$PROJECT_ROOT/.claude/mcp-shell-proxy.js" ]] && had_shell_proxy="true"
+  [[ -f "$PROJECT_ROOT/.claude/settings.json" ]] && had_settings="true"
+
+  if [[ ! -f "$STATE_FILE" || "$overwrite_existing" == "true" ]]; then
+    if [[ -f "$template_state" ]]; then
+      cp "$template_state" "$STATE_FILE"
+      if [[ "$had_state" == "true" ]]; then
+        state_status="overwritten"
+      else
+        state_status="created"
+      fi
+    else
+      wf_error "Không tìm thấy workflow state template: $template_state"
+      wf_info "Hành động đề xuất: kiểm tra lại file template trong templates/ trước khi chạy init."
+      exit 1
+    fi
+  fi
+
+  if [[ ! -f "$PROJECT_ROOT/.cursor/mcp.json" || "$overwrite_existing" == "true" ]]; then
+    cat > "$PROJECT_ROOT/.cursor/mcp.json" <<EOF
+{
+  "mcpServers": {
+    "workflow-state": {
+      "command": "node",
+      "args": [".claude/mcp-shell-proxy.js"],
+      "description": "Workflow shell proxy tools"
+    }
+  }
+}
+EOF
+    if [[ "$had_mcp" == "true" ]]; then
+      mcp_status="overwritten"
+    else
+      mcp_status="created"
+    fi
+  fi
+
+  if [[ -f "$WORKFLOW_ROOT/.claude/mcp-shell-proxy.js" ]]; then
+    if [[ ! -f "$PROJECT_ROOT/.claude/mcp-shell-proxy.js" || "$overwrite_existing" == "true" ]]; then
+      cp "$WORKFLOW_ROOT/.claude/mcp-shell-proxy.js" "$PROJECT_ROOT/.claude/mcp-shell-proxy.js"
+      if [[ "$had_shell_proxy" == "true" ]]; then
+        shell_proxy_status="overwritten"
+      else
+        shell_proxy_status="created"
+      fi
+    fi
+  fi
+
+  if [[ -f "$WORKFLOW_ROOT/.claude/settings.json" ]]; then
+    if [[ ! -f "$PROJECT_ROOT/.claude/settings.json" || "$overwrite_existing" == "true" ]]; then
+      cp "$WORKFLOW_ROOT/.claude/settings.json" "$PROJECT_ROOT/.claude/settings.json"
+      if [[ "$had_settings" == "true" ]]; then
+        settings_status="overwritten"
+      else
+        settings_status="created"
+      fi
+    fi
+  fi
+
+  mkdir -p "$PROJECT_ROOT/workflows/runtime/evidence" "$PROJECT_ROOT/workflows/gates/reports"
+
+  wf_info "Scaffold status:"
+  [[ "$state_status" == "created" || "$state_status" == "overwritten" ]] && \
+    wf_success "workflow-state.json: $state_status" || wf_warn "workflow-state.json: $state_status"
+  [[ "$mcp_status" == "created" || "$mcp_status" == "overwritten" ]] && \
+    wf_success ".cursor/mcp.json: $mcp_status" || wf_warn ".cursor/mcp.json: $mcp_status"
+  [[ "$shell_proxy_status" == "created" || "$shell_proxy_status" == "overwritten" ]] && \
+    wf_success ".claude/mcp-shell-proxy.js: $shell_proxy_status" || wf_warn ".claude/mcp-shell-proxy.js: $shell_proxy_status"
+  [[ "$settings_status" == "created" || "$settings_status" == "overwritten" ]] && \
+    wf_success ".claude/settings.json: $settings_status" || wf_warn ".claude/settings.json: $settings_status"
+}
+
 cmd_init() {
   local project_name=""
+  local overwrite_existing="false"
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --project) project_name="$2"; shift 2 ;;
+      --overwrite|--force) overwrite_existing="true"; shift ;;
       *) shift ;;
     esac
   done
+
+  ensure_project_scaffold "$overwrite_existing"
 
   [[ -z "$project_name" ]] && {
     echo -n "Tên dự án: "; read -r project_name
@@ -101,14 +197,21 @@ with open('$STATE_FILE', 'w') as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
 "
 
-  echo -e "\n${GREEN}${BOLD}Project \"$project_name\" đã được khởi tạo!${NC}"
-  echo -e "${CYAN}Step hiện tại: 1 — Requirements Analysis${NC}"
-  echo -e "Agent cần dùng: ${YELLOW}@pm${NC} (hỗ trợ: @tech-lead)"
-  echo -e "\nBắt đầu bằng: ${BOLD}bash scripts/workflow.sh start${NC}\n"
+  echo ""
+  wf_success "Project \"$project_name\" đã được khởi tạo."
+  wf_info "Step hiện tại: 1 — Requirements Analysis"
+  wf_info "Agent cần dùng: @pm (hỗ trợ: @tech-lead)"
+  wf_info "Bước tiếp theo: ${WORKFLOW_CLI_CMD} start"
+  wf_warn "Ghi đè scaffold chỉ khi thật sự cần: ${WORKFLOW_CLI_CMD} init --overwrite --project \"$project_name\""
+  echo ""
 }
 
 cmd_status() {
-  [[ ! -f "$STATE_FILE" ]] && { echo "workflow-state.json không tìm thấy. Chạy: bash setup.sh"; exit 1; }
+  [[ ! -f "$STATE_FILE" ]] && {
+    wf_error "Không tìm thấy workflow-state.json."
+    wf_info "Hành động đề xuất: chạy ${WORKFLOW_CLI_CMD} init --project \"Tên dự án\""
+    exit 1
+  }
 
   local step overall project
   step=$(wf_json_get "current_step")
@@ -176,7 +279,7 @@ if open_blockers:
     print()
 "
 
-  echo -e "  Dùng ${CYAN}bash scripts/workflow.sh approve${NC} sau khi step hoàn thành\n"
+  echo -e "  Dùng ${CYAN}${WORKFLOW_CLI_CMD} approve${NC} sau khi step hoàn thành\n"
 }
 
 cmd_start() {
@@ -190,7 +293,7 @@ cmd_start() {
   name=$(wf_get_step_name "$step")
   agent=$(wf_get_step_agent "$step")
 
-  bash scripts/hooks/invalidate-cache.sh state 2>/dev/null || true
+  bash "$WORKFLOW_ROOT/scripts/hooks/invalidate-cache.sh" state 2>/dev/null || true
   echo -e "\n${GREEN}${BOLD}Step $step — $name đã bắt đầu${NC}"
   echo -e "Agent chính: ${YELLOW}@$agent${NC}"
   echo -e "\nKhởi động Graphify context:"
@@ -206,7 +309,8 @@ cmd_approve() {
     case "$1" in
       --by)
         if [[ $# -lt 2 ]]; then
-          echo -e "${RED}Thiếu giá trị cho --by${NC}"
+      wf_error "Thiếu giá trị cho --by."
+      wf_info "Hành động đề xuất: dùng --by \"Tên người duyệt\""
           exit 1
         fi
         by="$2"
@@ -222,14 +326,16 @@ cmd_approve() {
     local gate_result
     if ! gate_result=$(wf_evaluate_gate "$step"); then
       wf_write_gate_report "$step" "FAIL" "${gate_result#GATE_FAIL|}" "$by"
-      echo -e "\n${RED}${BOLD}✗ APPROVE BLOCKED BY QA GATE${NC}"
-      echo -e "${RED}${gate_result#GATE_FAIL|}${NC}"
-      echo -e "\nChạy kiểm tra: ${BOLD}bash scripts/workflow.sh gate-check${NC}"
-      echo -e "Hoặc bypass có chủ đích: ${BOLD}bash scripts/workflow.sh approve --skip-gate --by \"Name\"${NC}\n"
+      echo ""
+      wf_error "APPROVE bị chặn bởi QA Gate."
+      wf_error "${gate_result#GATE_FAIL|}"
+      wf_info "Hành động đề xuất: chạy ${WORKFLOW_CLI_CMD} gate-check"
+      wf_warn "Bypass có chủ đích (có audit trail): ${WORKFLOW_CLI_CMD} approve --skip-gate --by \"Name\""
+      echo ""
       exit 1
     fi
     wf_write_gate_report "$step" "PASS" "${gate_result#GATE_OK|}" "$by"
-    echo -e "${GREEN}QA Gate passed:${NC} ${gate_result#GATE_OK|}"
+    wf_success "QA Gate passed: ${gate_result#GATE_OK|}"
   else
     wf_write_gate_report "$step" "BYPASS" "approve --skip-gate was used" "$by"
   fi
@@ -254,14 +360,14 @@ cmd_approve() {
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "\n${CYAN}${BOLD}→ Tiếp theo: Step $next_step — $next_name${NC}"
     echo -e "Agent: ${YELLOW}@$next_agent${NC}"
-    echo -e "Bắt đầu: ${BOLD}bash scripts/workflow.sh start${NC}\n"
+    echo -e "Bắt đầu: ${BOLD}${WORKFLOW_CLI_CMD} start${NC}\n"
   else
     wf_json_set "overall_status" "completed"
     echo -e "\n${GREEN}${BOLD}🎉 WORKFLOW HOÀN THÀNH! Project đã release.${NC}\n"
   fi
   # Invalidate MCP state cache + generate token report
-  bash scripts/hooks/invalidate-cache.sh state 2>/dev/null || true
-  python3 scripts/hooks/generate-token-report.py --step "$step" 2>/dev/null || true
+  bash "$WORKFLOW_ROOT/scripts/hooks/invalidate-cache.sh" state 2>/dev/null || true
+  python3 "$WORKFLOW_ROOT/scripts/hooks/generate-token-report.py" --step "$step" 2>/dev/null || true
 
   local manifest_rel="workflows/runtime/evidence/step-${step}-manifest.json"
   local trace_row
@@ -316,12 +422,12 @@ cmd_reject() {
 
   echo -e "\n${RED}${BOLD}✗ Step $step — $name: REJECTED${NC}"
   echo -e "Lý do: $reason"
-  echo -e "\nAddress concerns rồi chạy lại: ${BOLD}bash scripts/workflow.sh approve${NC}\n"
+  echo -e "\nAddress concerns rồi chạy lại: ${BOLD}${WORKFLOW_CLI_CMD} approve${NC}\n"
 }
 
 cmd_add_blocker() {
   local desc="${1:-}"
-  [[ -z "$desc" ]] && { echo -n "Mô tả blocker: "; read -r desc; }
+  [[ -z "$desc" ]] && { wf_info "Nhập mô tả blocker:"; read -r desc; }
 
   local step
   step=$(wf_require_initialized_workflow)
@@ -338,12 +444,12 @@ with open('$STATE_FILE', 'w') as f: json.dump(d, f, indent=2, ensure_ascii=False
 "
 
   echo -e "\n${YELLOW}Blocker đã được ghi nhận: [$id] $desc${NC}"
-  echo -e "Resolve: ${BOLD}bash scripts/workflow.sh blocker resolve $id${NC}\n"
+  echo -e "Resolve: ${BOLD}${WORKFLOW_CLI_CMD} blocker resolve $id${NC}\n"
 }
 
 cmd_resolve_blocker() {
   local id="${1:-}"
-  [[ -z "$id" ]] && { echo "Usage: blocker resolve <id>"; exit 1; }
+  [[ -z "$id" ]] && { wf_error "Thiếu blocker id."; wf_info "Usage: blocker resolve <id>"; exit 1; }
 
   local step
   step=$(wf_require_initialized_workflow)
@@ -369,9 +475,97 @@ print('Blocker $id đã được resolved')
 "
 }
 
+cmd_reconcile_blockers() {
+  local step
+  step=$(wf_require_initialized_workflow)
+
+  WF_STATE_FILE="$STATE_FILE" WF_REPO_ROOT="$REPO_ROOT" WF_ROLE_POLICY_FILE="$ROLE_POLICY_FILE" WF_STEP="$step" python3 - <<'PY'
+import json
+import os
+import re
+from datetime import datetime
+from pathlib import Path
+
+state_path = Path(os.environ["WF_STATE_FILE"])
+repo_root = Path(os.environ["WF_REPO_ROOT"])
+role_policy_path = Path(os.environ["WF_ROLE_POLICY_FILE"])
+step = str(os.environ["WF_STEP"])
+now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+data = json.loads(state_path.read_text(encoding="utf-8"))
+blockers = data.get("steps", {}).get(step, {}).get("blockers", []) or []
+
+roles_cfg = {}
+if role_policy_path.exists():
+    try:
+        roles_cfg = (json.loads(role_policy_path.read_text(encoding="utf-8")) or {}).get("roles", {}) or {}
+    except Exception:
+        roles_cfg = {}
+
+resolved = []
+remaining = []
+
+def all_backtick_paths_exist(desc: str) -> bool:
+    paths = re.findall(r"`([^`]+)`", desc or "")
+    if not paths:
+        return False
+    return all((repo_root / p).exists() for p in paths)
+
+def resolve_rule_matched(desc: str) -> tuple[bool, str]:
+    text = (desc or "").lower()
+
+    # Specific rule for role-policy blocker: require backend + frontend roles.
+    if "role-policy.v1.json" in text:
+      if "backend" in roles_cfg and "frontend" in roles_cfg:
+          return True, "role-policy covers backend/frontend"
+      return False, "role-policy missing backend/frontend"
+
+    # Specific rule for docs traceability blocker.
+    if "docs/requirements.md" in text and "docs/architecture.md" in text:
+      req_ok = (repo_root / "docs/requirements.md").exists()
+      arch_ok = (repo_root / "docs/architecture.md").exists()
+      if req_ok and arch_ok:
+          return True, "requirements + architecture docs exist"
+      missing = []
+      if not req_ok:
+          missing.append("docs/requirements.md")
+      if not arch_ok:
+          missing.append("docs/architecture.md")
+      return False, "missing: " + ", ".join(missing)
+
+    # Generic heuristic: if all quoted file paths now exist.
+    if all_backtick_paths_exist(desc):
+        return True, "all referenced backtick paths exist"
+
+    return False, "no reconcile rule matched"
+
+for b in blockers:
+    if b.get("resolved"):
+        continue
+    ok, reason = resolve_rule_matched(b.get("description", ""))
+    if ok:
+        b["resolved"] = True
+        b["resolved_at"] = now
+        b["resolved_by"] = "reconcile"
+        b["resolution_note"] = reason
+        resolved.append((b.get("id", "?"), reason))
+    else:
+        remaining.append((b.get("id", "?"), reason))
+
+data["updated_at"] = now
+state_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+print(f"RECONCILE_OK|step={step}|resolved={len(resolved)}|remaining_open={len(remaining)}")
+for bid, reason in resolved:
+    print(f"RESOLVED|{bid}|{reason}")
+for bid, reason in remaining:
+    print(f"OPEN|{bid}|{reason}")
+PY
+}
+
 cmd_add_decision() {
   local desc="${1:-}"
-  [[ -z "$desc" ]] && { echo -n "Quyết định: "; read -r desc; }
+  [[ -z "$desc" ]] && { wf_info "Nhập nội dung quyết định:"; read -r desc; }
 
   local step
   step=$(wf_require_initialized_workflow)
@@ -414,7 +608,8 @@ case "$CMD" in
     case "$SUBCMD" in
       add)     cmd_add_blocker "$@" ;;
       resolve) cmd_resolve_blocker "$@" ;;
-      *)       echo "Usage: blocker [add|resolve]" ;;
+      reconcile) cmd_reconcile_blockers "$@" ;;
+      *)       wf_error "Subcommand blocker không hợp lệ."; wf_info "Usage: blocker [add|resolve|reconcile]" ;;
     esac
     ;;
   decision|d)   cmd_add_decision "$@" ;;
@@ -432,7 +627,7 @@ case "$CMD" in
     SUBCMD="${1:-scan}"; shift || true
     cmd_mercenary "$SUBCMD" "$@"
     ;;
-  monitor|mon)  python3 scripts/monitor.py "$@" ;;
+  monitor|mon)  python3 "$WORKFLOW_ROOT/scripts/monitor.py" "$@" ;;
   retro)        cmd_retro "$@" ;;
   complexity)   cmd_complexity ;;
   team)         cmd_team "$@" ;;
@@ -442,12 +637,13 @@ case "$CMD" in
   history|h)    cmd_history ;;
   reset)        cmd_reset "$@" ;;
   help|--help|-h)
-    echo -e "\n${BOLD}IT Product Workflow CLI${NC}"
+    echo ""
+    wf_info "IT Product Workflow CLI"
     echo -e "  init --project \"Name\"  Khởi tạo dự án mới"
     echo -e "  status                 Xem trạng thái"
     echo -e "  start                  Bắt đầu step hiện tại"
     echo -e "  monitor [--once] [--interval=N]"
-    echo -e "                         Live token monitoring dashboard (separate terminal)"
+    echo -e "                         Dashboard theo dõi token theo thời gian thực (mở terminal riêng)"
     echo -e "  complexity             Đánh giá complexity score của step hiện tại"
     echo -e "  war-room [merge]       Phase 0: PM + TechLead align (complexity-gated)"
     echo -e "  cursor-dispatch [cd] [--skip-war-room] [--merge]"
@@ -461,19 +657,25 @@ case "$CMD" in
     echo -e "  reject \"reason\"        Reject với lý do"
     echo -e "  blocker add \"desc\"     Thêm blocker"
     echo -e "  blocker resolve <id>   Resolve blocker"
+    echo -e "  blocker reconcile      Auto-resolve blockers khi điều kiện đã đủ"
     echo -e "  decision \"desc\"        Ghi nhận quyết định"
     echo -e "  dispatch [--dry-run|--headless] [--role name]"
     echo -e "                         Tạo worker briefs (low-level, dùng cursor-dispatch thay)"
     echo -e "  team <start|delegate|sync|status|monitor|recover|budget-reset|run>"
     echo -e "                         PM-only orchestration cho sub-agents"
     echo -e "  brainstorm [topic]     One-shot auto init + delegate theo current step"
-    echo -e "  summary                Step summary"
+    echo -e "  summary                Tóm tắt step hiện tại"
     echo -e "  release-dashboard      PM release summary"
     echo -e "  history                Lịch sử approvals"
-    echo -e "  reset <step>           Reset về step cụ thể\n"
+    echo -e "  reset <step>           Reset về step cụ thể"
+    echo ""
+    wf_info "Mẹo: bắt đầu nhanh với ${WORKFLOW_CLI_CMD} init --project \"Tên dự án\""
+    wf_info "Mẹo: xem trạng thái bất kỳ lúc nào với ${WORKFLOW_CLI_CMD} status"
+    echo ""
     ;;
   *)
-    echo "Unknown command: $CMD. Dùng --help để xem danh sách lệnh."
+    wf_error "Lệnh không hợp lệ: $CMD"
+    wf_info "Hành động đề xuất: dùng --help để xem danh sách lệnh."
     exit 1
     ;;
 esac

@@ -2,29 +2,16 @@
   "mcpServers": {
     "shell-proxy": {
       "command": "node",
-      "args": [".claude/mcp-shell-proxy.js"],
+      "args": [
+        ".claude/mcp-shell-proxy.js"
+      ],
       "description": "Token-efficient shell proxy — wf_state, wf_git, wf_step_context, wf_files, wf_read, wf_env. Replaces bash reads with structured cached JSON. Use BEFORE any bash command."
-    },
-    "graphify": {
-      "command": "python3",
-      "args": ["-m", "graphify.serve", "--root", "."],
-      "env": {
-        "GRAPHIFY_GRAPH_PATH": ".graphify/graph.json",
-        "GRAPHIFY_AUTO_INDEX": "true"
-      },
-      "description": "Codebase knowledge graph — graphify_query, graphify_search, graphify_update_node, graphify_snapshot"
-    },
-    "gitnexus": {
-      "command": "npx",
-      "args": ["gitnexus", "--mcp", "--repo", "."],
-      "env": {
-        "GITNEXUS_AUTO_INDEX": "true"
-      },
-      "description": "Code intelligence — gitnexus_get_architecture, gitnexus_impact_analysis, gitnexus_detect_changes, gitnexus_find_related"
     },
     "workflow-state": {
       "command": "node",
-      "args": [".claude/mcp-workflow-state.js"],
+      "args": [
+        ".claude/mcp-workflow-state.js"
+      ],
       "description": "Workflow state tracker — workflow_get_state, workflow_advance_step, workflow_request_approval, workflow_add_blocker, workflow_add_decision"
     }
   }

@@ -9,6 +9,11 @@ wf_now() { date '+%Y-%m-%d %H:%M:%S'; }
 wf_today() { date '+%Y-%m-%d'; }
 wf_ensure_dir() { mkdir -p "$1"; }
 
+wf_info() { echo -e "${CYAN}[INFO]${NC} $*"; }
+wf_success() { echo -e "${GREEN}[SUCCESS]${NC} $*"; }
+wf_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
+wf_error() { echo -e "${RED}[ERROR]${NC} $*"; }
+
 wf_warn_deprecated() {
   local legacy_name="$1"
   local new_name="$2"

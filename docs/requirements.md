@@ -1,0 +1,31 @@
+# Requirements — Global Workflow CLI
+
+## Product Goal
+Biến project hiện tại thành một CLI có thể cài đặt global để khởi tạo và vận hành workflow nhất quán giữa nhiều project.
+
+## Primary User Stories
+- Là developer, tôi muốn cài CLI global một lần và dùng ở mọi repo.
+- Là PM/lead, tôi muốn chạy lệnh `init` để tạo scaffold chuẩn gồm `.cursor`, `.claude`, và `workflow-state.json`.
+- Là team member, tôi muốn tất cả hướng dẫn dùng command global thay vì script relative để giảm sai lệch môi trường.
+
+## Functional Requirements
+1. CLI hỗ trợ cài đặt global qua package manager chuẩn.
+2. Lệnh `init` tạo đầy đủ:
+   - `.cursor/`
+   - `.claude/`
+   - `workflow-state.json`
+3. `init` có tính idempotent:
+   - Không ghi đè file người dùng đã chỉnh nếu không có cờ explicit.
+   - Có thông báo rõ file nào được tạo/bỏ qua.
+4. Các command workflow chính chạy qua entrypoint global thay vì `bash scripts/workflow.sh ...`.
+5. Giữ tương thích ngược tối thiểu trong giai đoạn chuyển đổi (alias hoặc fallback command).
+
+## Non-Functional Requirements
+- Tính ổn định: command thất bại phải có exit code và thông báo rõ.
+- Auditability: hành động quan trọng vẫn ghi logs/reports như hiện tại.
+- Portability: chạy được trên môi trường shell tiêu chuẩn macOS/Linux.
+
+## Acceptance Criteria
+- Từ một repo trống, chạy global `init` tạo đúng scaffold cần thiết.
+- Các tài liệu chính không còn hướng dẫn dùng script relative làm mặc định.
+- Gate/check workflow hoạt động bình thường sau khi chuyển sang command global.

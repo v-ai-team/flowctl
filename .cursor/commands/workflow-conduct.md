@@ -13,8 +13,8 @@ Topic/context: $ARGUMENTS
 ### PHASE 0 — Complexity Assessment
 
 ```bash
-bash scripts/workflow.sh status
-bash scripts/workflow.sh complexity
+workflow status
+workflow complexity
 ```
 
 - Score 1-2 → Skip War Room, dispatch thẳng (PHASE A)
@@ -25,7 +25,7 @@ bash scripts/workflow.sh complexity
 ### PHASE 0b — War Room (chỉ khi complexity ≥ 3)
 
 ```bash
-bash scripts/workflow.sh cursor-dispatch
+workflow cursor-dispatch
 ```
 
 Lệnh này tự phát hiện complexity và output **War Room Spawn Board** (PM + TechLead).
@@ -44,7 +44,7 @@ graphify_query("step:{N-1}:outcomes")
 
 Khi cả 2 hoàn thành:
 ```bash
-bash scripts/workflow.sh cursor-dispatch --merge
+workflow cursor-dispatch --merge
 ```
 → Tạo `context-digest.md` từ 2 outputs → sẵn sàng Phase A
 
@@ -53,7 +53,7 @@ bash scripts/workflow.sh cursor-dispatch --merge
 ### PHASE A — Dispatch Full Team
 
 ```bash
-bash scripts/workflow.sh cursor-dispatch --skip-war-room
+workflow cursor-dispatch --skip-war-room
 ```
 
 PM dùng **Task tool** để spawn tất cả worker agents SONG SONG:
@@ -81,7 +81,7 @@ Mỗi worker agent phải:
 Khi tất cả workers hoàn thành:
 
 ```bash
-bash scripts/workflow.sh collect
+workflow collect
 ```
 
 Collect tự động:
@@ -94,7 +94,7 @@ Collect tự động:
 ### PHASE B — Mercenary Support (nếu collect báo cần)
 
 ```bash
-bash scripts/workflow.sh mercenary spawn
+workflow mercenary spawn
 ```
 
 Spawn mercenary specialists SONG SONG (ít hơn Phase A):
@@ -103,7 +103,7 @@ Spawn mercenary specialists SONG SONG (ít hơn Phase A):
 
 Sau đó re-spawn các blocked workers:
 ```bash
-bash scripts/workflow.sh dispatch --role [blocked-role]
+workflow dispatch --role [blocked-role]
 ```
 (mercenary outputs đã được inject vào brief tự động)
 
@@ -112,8 +112,8 @@ bash scripts/workflow.sh dispatch --role [blocked-role]
 ### GATE CHECK + APPROVAL RECOMMENDATION
 
 ```bash
-bash scripts/workflow.sh gate-check
-bash scripts/workflow.sh release-dashboard --no-write
+workflow gate-check
+workflow release-dashboard --no-write
 ```
 
 Trình bày cho user:
@@ -148,8 +148,8 @@ Trình bày cho user:
 
 **Lý do**: [2-3 câu]
 
-**Nếu APPROVE**: `bash scripts/workflow.sh approve --by "PM"`
-→ Sau đó: `bash scripts/workflow.sh retro` (capture lessons)
+**Nếu APPROVE**: `workflow approve --by "PM"`
+→ Sau đó: `workflow retro` (capture lessons)
 
 **Nếu CONDITIONAL**: [items cần fix trong 48h]
 **Nếu REJECT**: [lý do + next steps]
@@ -197,7 +197,7 @@ gitnexus_impact_analysis("{file}")       ← trước khi sửa code
 
 Sau khi user approve, PM chạy:
 ```bash
-bash scripts/workflow.sh retro
+workflow retro
 ```
 → Extract patterns → `.graphify/lessons.json`
 → Lessons này tự động inject vào War Room của step tiếp theo
