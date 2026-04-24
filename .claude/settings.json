@@ -2,7 +2,7 @@
   "permissions": {
     "allow": [
       "Bash(bash setup.sh*)",
-      "Bash(bash scripts/workflow.sh*)",
+      "Bash(bash scripts/flowctl.sh*)",
       "Bash(bash scripts/hooks/invalidate-cache.sh*)",
       "Bash(node scripts/setup-git-hooks.mjs*)",
       "Bash(python3 scripts/monitor.py*)",
@@ -12,11 +12,11 @@
       "Bash(python3 -m graphify*)",
       "Bash(npx gitnexus*)",
       "Bash(node .claude/mcp-shell-proxy.js*)",
-      "Bash(node .claude/mcp-workflow-state.js*)",
-      "Bash(cat workflow-state.json)",
-      "Bash(python3 * workflow-state.json*)",
+      "Bash(node .claude/mcp-flowctl-state.js*)",
+      "Bash(cat flowctl-state.json)",
+      "Bash(python3 * flowctl-state.json*)",
       "Bash(chmod +x setup.sh)",
-      "Bash(chmod +x scripts/workflow.sh)",
+      "Bash(chmod +x scripts/flowctl.sh)",
       "Bash(chmod +x scripts/hooks/*.sh)"
     ]
   },
@@ -27,12 +27,12 @@
           {
             "type": "command",
             "command": "bash scripts/hooks/invalidate-cache.sh state 2>/dev/null || true",
-            "statusMessage": "Refreshing workflow cache..."
+            "statusMessage": "Refreshing flowctl cache..."
           },
           {
             "type": "command",
-            "command": "[ -f workflow-state.json ] && python3 -c \"import json; d=json.load(open('workflow-state.json')); s=d.get('current_step',0); name=d.get('steps',{}).get(str(s),{}).get('name','') if s else ''; agent=d.get('steps',{}).get(str(s),{}).get('agent','') if s else ''; status=d.get('overall_status','not_started'); blockers=len([b for b in d.get('steps',{}).get(str(s),{}).get('blockers',[]) if not b.get('resolved')]); print(json.dumps({'systemMessage': f'[Workflow] {d.get(\\\"project_name\\\",\\\"Chưa khởi tạo\\\")} | {status} | Step {s}: {name} | @{agent} | Blockers: {blockers} | Use wf_state() not cat | Monitor: bash scripts/workflow.sh monitor'}))\" 2>/dev/null || true",
-            "statusMessage": "Loading workflow state..."
+            "command": "[ -f flowctl-state.json ] && python3 -c \"import json; d=json.load(open('flowctl-state.json')); s=d.get('current_step',0); name=d.get('steps',{}).get(str(s),{}).get('name','') if s else ''; agent=d.get('steps',{}).get(str(s),{}).get('agent','') if s else ''; status=d.get('overall_status','not_started'); blockers=len([b for b in d.get('steps',{}).get(str(s),{}).get('blockers',[]) if not b.get('resolved')]); print(json.dumps({'systemMessage': f'[Workflow] {d.get(\\\"project_name\\\",\\\"Chưa khởi tạo\\\")} | {status} | Step {s}: {name} | @{agent} | Blockers: {blockers} | Use wf_state() not cat | Monitor: bash scripts/flowctl.sh monitor'}))\" 2>/dev/null || true",
+            "statusMessage": "Loading flowctl state..."
           }
         ]
       }

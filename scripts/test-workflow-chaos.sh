@@ -2,8 +2,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORKFLOW="$REPO_ROOT/scripts/workflow.sh"
-STATE_FILE="$REPO_ROOT/workflow-state.json"
+WORKFLOW="$REPO_ROOT/scripts/flowctl.sh"
+STATE_FILE="$REPO_ROOT/flowctl-state.json"
 RUNTIME_DIR="$REPO_ROOT/workflows/runtime"
 BUDGET_STATE_FILE="$RUNTIME_DIR/budget-state.json"
 TRACEABILITY_FILE="$RUNTIME_DIR/traceability-map.jsonl"
@@ -17,11 +17,11 @@ mkdir -p "$RUN_DIR"
 mkdir -p "$RUNTIME_DIR"
 
 if [[ ! -f "$STATE_FILE" ]]; then
-  echo "Missing workflow-state.json" >&2
+  echo "Missing flowctl-state.json" >&2
   exit 1
 fi
 
-BACKUP_STATE="$RUN_DIR/workflow-state.backup.json"
+BACKUP_STATE="$RUN_DIR/flowctl-state.backup.json"
 cp "$STATE_FILE" "$BACKUP_STATE"
 BACKUP_BUDGET="$RUN_DIR/budget-state.backup.json"
 if [[ -f "$BUDGET_STATE_FILE" ]]; then
@@ -33,7 +33,7 @@ cleanup() {
   if [[ -f "$BACKUP_BUDGET" ]]; then
     cp "$BACKUP_BUDGET" "$BUDGET_STATE_FILE"
   fi
-  rm -rf "$REPO_ROOT/.workflow-lock" 2>/dev/null || true
+  rm -rf "$REPO_ROOT/.flowctl-lock" 2>/dev/null || true
   rm -f "$TRACEABILITY_FILE" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -69,7 +69,7 @@ assert_contains() {
 log "# Chaos Suite Run ($STAMP)"
 log "repo=$REPO_ROOT"
 
-expect_success "Initialize workflow baseline" bash "$WORKFLOW" init --project "Chaos Regression"
+expect_success "Initialize flowctl baseline" bash "$WORKFLOW" init --project "Chaos Regression"
 expect_success "Start step 1 baseline" bash "$WORKFLOW" start
 
 REPORT_DIR="$REPO_ROOT/workflows/dispatch/step-1/reports"
@@ -111,7 +111,7 @@ state["breaker"].update({
     "probe_role": "pm"
 })
 state["run"].update({
-    "workflow_id": "wf-chaos",
+    "flow_id": "wf-chaos",
     "run_id": "run-chaos",
     "step": 1
 })
@@ -149,9 +149,9 @@ if [[ -f "$REPORT_DIR/backend-report.md" || -f "$LOGS_DIR/backend.log" ]]; then
 fi
 log "PASS: rollback removed backend report/log"
 
-rm -rf "$REPO_ROOT/.workflow-lock"
-mkdir -p "$REPO_ROOT/.workflow-lock"
-echo "999999" > "$REPO_ROOT/.workflow-lock/pid"
+rm -rf "$REPO_ROOT/.flowctl-lock"
+mkdir -p "$REPO_ROOT/.flowctl-lock"
+echo "999999" > "$REPO_ROOT/.flowctl-lock/pid"
 expect_success "Stale lock is reclaimed automatically" bash "$WORKFLOW" decision "chaos lock reclaim"
 log "PASS: stale lock reclaimed"
 
@@ -175,7 +175,7 @@ assert_contains "$trace_dump" "\"event_type\": \"task\"" "collect writes task tr
   echo "- collect succeeds with noisy runtime artifacts"
   echo "- budget breaker half-open probe closes on successful role completion"
   echo "- team recover rollback removes orphan report/log and marks idempotency path"
-  echo "- stale workflow lock is reclaimed and mutating command proceeds"
+  echo "- stale flowctl lock is reclaimed and mutating command proceeds"
   echo "- traceability events still emitted under chaos conditions"
 } > "$SUMMARY_FILE"
 

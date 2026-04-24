@@ -59,7 +59,7 @@ repo_root = Path("$REPO_ROOT")
 step = str($step)
 
 if not state_path.exists():
-    print("GATE_FAIL|workflow-state.json not found")
+    print("GATE_FAIL|flowctl-state.json not found")
     raise SystemExit(1)
 
 if not gate_path.exists():
@@ -70,7 +70,7 @@ state = json.loads(state_path.read_text(encoding="utf-8"))
 gate = json.loads(gate_path.read_text(encoding="utf-8"))
 step_obj = state.get("steps", {}).get(step)
 if not step_obj:
-    print(f"GATE_FAIL|Step {step} not found in workflow state")
+    print(f"GATE_FAIL|Step {step} not found in flowctl state")
     raise SystemExit(1)
 
 errors = []

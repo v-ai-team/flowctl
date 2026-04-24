@@ -202,7 +202,7 @@ gitnexus rebase "<base-branch>" --smart
 # Setup project repository nếu chưa có
 gitnexus init --project-type "web-app|api|fullstack" \
   --team-size "{n}" \
-  --workflow "gitflow"
+  --flowctl "gitflow"
 
 # Tạo branch cho requirements docs
 gitnexus branch create "requirements analysis PRD and user stories" \

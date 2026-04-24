@@ -99,7 +99,7 @@ for i, r in enumerate(requests, 1):
     print()
 "
 
-  echo -e "  Chạy ${BOLD}bash scripts/workflow.sh mercenary spawn${NC} để tạo spawn board.\n"
+  echo -e "  Chạy ${BOLD}bash scripts/flowctl.sh mercenary spawn${NC} để tạo spawn board.\n"
 }
 
 _mercenary_spawn_board() {
@@ -191,7 +191,7 @@ step = '$step'
 for i, r in enumerate(requests, 1):
     role = r.get('requested_by','?')
     mtype = r.get('type','researcher')
-    print(f'  bash scripts/workflow.sh dispatch --role {role}  # re-run @{role} với mercenary output')
+    print(f'  bash scripts/flowctl.sh dispatch --role {role}  # re-run @{role} với mercenary output')
 "
   echo ""
 }

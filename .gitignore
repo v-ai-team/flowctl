@@ -2,5 +2,5 @@ node_modules/
 .cache/
 package-lock.json
 workflows/
-workflow-state.json
+flow-state.json
 __pycache__/

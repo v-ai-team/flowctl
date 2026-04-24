@@ -12,7 +12,7 @@ REPO        = Path(__file__).resolve().parent.parent
 CACHE       = REPO / ".cache" / "mcp"
 EVENTS_F    = CACHE / "events.jsonl"
 STATS_F     = CACHE / "session-stats.json"
-STATE_F     = REPO / "workflow-state.json"
+STATE_F     = REPO / "flowctl-state.json"
 
 THRESHOLDS  = {"bash_waste_per_event": 400, "cache_hit_rate_min": 0.65}
 STEP_BUDGETS = {1:8000, 2:12000, 3:10000, 4:18000, 5:18000, 6:14000, 7:12000, 8:10000, 9:8000}
@@ -75,7 +75,7 @@ def load_events(last_n=80):
         return events
     except Exception: return []
 
-def load_workflow_state():
+def load_flow_state():
     try: return json.loads(STATE_F.read_text()) if STATE_F.exists() else {}
     except Exception: return {}
 
@@ -154,7 +154,7 @@ def hit_bar(rate, width=8):
 def render_rich(live_mode=False):
     stats  = load_stats()
     events = load_events(100)
-    wf     = load_workflow_state()
+    wf     = load_flow_state()
     turns  = group_into_turns(events)
     alerts = check_alerts(stats, events)
 
@@ -347,7 +347,7 @@ _RED="\033[31m"; _GRN="\033[32m"; _YEL="\033[33m"; _CYN="\033[36m"
 def render_ansi():
     stats  = load_stats()
     events = load_events(50)
-    wf     = load_workflow_state()
+    wf     = load_flow_state()
     turns  = group_into_turns(events)
     alerts = check_alerts(stats, events)
 

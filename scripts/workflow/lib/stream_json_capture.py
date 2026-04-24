@@ -29,7 +29,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--step", required=True)
     parser.add_argument("--role", required=True)
-    parser.add_argument("--workflow-id", required=True)
+    parser.add_argument("--flowctl-id", required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--log-path", required=True)
     parser.add_argument("--heartbeats-path", required=True)
@@ -66,9 +66,9 @@ def main() -> int:
             text = extract_text(parsed)
             heartbeat = {
                 "timestamp": ts,
-                "workflow_id": args.workflow_id,
+                "flow_id": args.flow_id,
                 "run_id": args.run_id,
-                "correlation_id": f"{args.workflow_id}/{args.run_id}/{args.step}/{args.role}",
+                "correlation_id": f"{args.flow_id}/{args.run_id}/{args.step}/{args.role}",
                 "step": int(args.step),
                 "role": args.role,
                 "event_type": str(event_type),

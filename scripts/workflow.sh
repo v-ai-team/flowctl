@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # ============================================================
 # IT Product Team Workflow — CLI Manager
-# Quản lý workflow state, approvals, và transitions
+# Quản lý flowctl state, approvals, và transitions
 #
 # Usage:
-#   workflow <command> [args]
-#   bash scripts/workflow.sh <command> [args]   # backward-compatible
+#   flowctl <command> [args]
+#   bash scripts/flowctl.sh <command> [args]   # backward-compatible
 #
 # Commands:
-#   init --project "Name"    Khởi tạo workflow cho project mới
+#   init --project "Name"    Khởi tạo flowctl cho project mới
 #   status                   Xem trạng thái hiện tại
 #   start                    Bắt đầu step hiện tại
 #   approve [--by "Name"]    Approve step hiện tại → advance
@@ -21,7 +21,7 @@
 #   decision "desc"          Ghi nhận quyết định
 #   dispatch [--launch|--headless] [--trust] [--dry-run] [--force-run] [--max-retries N] [--role name] [--budget-override-reason text]
 #                            Tạo briefs; launch UI hoặc chạy headless nền
-#   collect                  Gom worker reports vào workflow-state
+#   collect                  Gom worker reports vào flowctl-state
 #   team <start|delegate|sync|status|monitor|recover|budget-reset|run>
 #                            PM-only orchestration: step-based spawn/collect/summary
 #   brainstorm [topic]       One-shot: init (if needed) + step-based delegate
@@ -35,7 +35,7 @@ set -euo pipefail
 
 WORKFLOW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$PWD}"
-WORKFLOW_CLI_CMD="${WORKFLOW_CLI_CMD:-workflow}"
+WORKFLOW_CLI_CMD="${WORKFLOW_CLI_CMD:-flowctl}"
 
 # ── Library modules ───────────────────────────────────────────
 LIB_DIR="$WORKFLOW_ROOT/scripts/workflow/lib"
@@ -76,7 +76,7 @@ source "$LIB_DIR/reporting.sh"
 
 ensure_project_scaffold() {
   local overwrite_existing="${1:-false}"
-  local template_state="$WORKFLOW_ROOT/templates/workflow-state.template.json"
+  local template_state="$WORKFLOW_ROOT/templates/flowctl-state.template.json"
   local had_state="false"
   local had_mcp="false"
   local had_shell_proxy="false"
@@ -102,7 +102,7 @@ ensure_project_scaffold() {
         state_status="created"
       fi
     else
-      wf_error "Không tìm thấy workflow state template: $template_state"
+      wf_error "Không tìm thấy flowctl state template: $template_state"
       wf_info "Hành động đề xuất: kiểm tra lại file template trong templates/ trước khi chạy init."
       exit 1
     fi
@@ -112,7 +112,7 @@ ensure_project_scaffold() {
     cat > "$PROJECT_ROOT/.cursor/mcp.json" <<EOF
 {
   "mcpServers": {
-    "workflow-state": {
+    "flowctl-state": {
       "command": "node",
       "args": [".claude/mcp-shell-proxy.js"],
       "description": "Workflow shell proxy tools"
@@ -150,10 +150,25 @@ EOF
   fi
 
   mkdir -p "$PROJECT_ROOT/workflows/runtime/evidence" "$PROJECT_ROOT/workflows/gates/reports"
+  local gate_template="$WORKFLOW_ROOT/templates/qa-gate.v1.json"
+  if [[ -f "$gate_template" && ! -f "$PROJECT_ROOT/workflows/gates/qa-gate.v1.json" ]]; then
+    mkdir -p "$PROJECT_ROOT/workflows/gates"
+    cp "$gate_template" "$PROJECT_ROOT/workflows/gates/qa-gate.v1.json"
+  fi
+
+  mkdir -p "$PROJECT_ROOT/workflows/policies"
+  local budget_template="$WORKFLOW_ROOT/templates/budget-policy.v1.json"
+  if [[ -f "$budget_template" && ! -f "$PROJECT_ROOT/workflows/policies/budget-policy.v1.json" ]]; then
+    cp "$budget_template" "$PROJECT_ROOT/workflows/policies/budget-policy.v1.json"
+  fi
+  local role_template="$WORKFLOW_ROOT/templates/role-policy.v1.json"
+  if [[ -f "$role_template" && ! -f "$PROJECT_ROOT/workflows/policies/role-policy.v1.json" ]]; then
+    cp "$role_template" "$PROJECT_ROOT/workflows/policies/role-policy.v1.json"
+  fi
 
   wf_info "Scaffold status:"
   [[ "$state_status" == "created" || "$state_status" == "overwritten" ]] && \
-    wf_success "workflow-state.json: $state_status" || wf_warn "workflow-state.json: $state_status"
+    wf_success "flowctl-state.json: $state_status" || wf_warn "flowctl-state.json: $state_status"
   [[ "$mcp_status" == "created" || "$mcp_status" == "overwritten" ]] && \
     wf_success ".cursor/mcp.json: $mcp_status" || wf_warn ".cursor/mcp.json: $mcp_status"
   [[ "$shell_proxy_status" == "created" || "$shell_proxy_status" == "overwritten" ]] && \
@@ -208,7 +223,7 @@ with open('$STATE_FILE', 'w') as f:
 
 cmd_status() {
   [[ ! -f "$STATE_FILE" ]] && {
-    wf_error "Không tìm thấy workflow-state.json."
+    wf_error "Không tìm thấy flowctl-state.json."
     wf_info "Hành động đề xuất: chạy ${WORKFLOW_CLI_CMD} init --project \"Tên dự án\""
     exit 1
   }
@@ -589,7 +604,7 @@ shift || true
 
 case "$CMD" in
   init|start|gate-check|approve|reject|conditional|blocker|decision|dispatch|cursor-dispatch|collect|team|reset|brainstorm|release-dashboard|war-room|mercenary|retro|complexity)
-    wf_acquire_workflow_lock
+    wf_acquire_flow_lock
     ;;
   *)
     ;;

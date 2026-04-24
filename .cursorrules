@@ -4,7 +4,7 @@
 ## AGENT SYSTEM OVERVIEW
 
 This repository uses a multi-agent architecture for IT product development.
-Seven specialized agents collaborate through a structured 9-step workflow.
+Seven specialized agents collaborate through a structured 9-step flowctl.
 All agents MUST follow these global rules in addition to their role-specific definitions.
 
 ## ACTIVE AGENTS
@@ -33,7 +33,7 @@ All agents MUST follow these global rules in addition to their role-specific def
 
 ## WORKFLOW RULES
 
-1. **Sequential Steps**: Follow the 9-step workflow in strict order
+1. **Sequential Steps**: Follow the 9-step flowctl in strict order
 2. **Approval Gates**: No step can begin without explicit human approval
 3. **Summaries**: Each step MUST produce a structured summary before approval request
 4. **Graphify Updates**: Update knowledge graph at each step completion
@@ -126,7 +126,7 @@ Before any PR is merged:
 
 ## COMMUNICATION PROTOCOLS
 
-- Use structured summaries at each workflow step (see `templates/step-summary-template.md`)
+- Use structured summaries at each flowctl step (see `templates/step-summary-template.md`)
 - Document all architectural decisions in ADR format
 - Update Graphify with every major decision
 - Tag agents by role when requesting input: `@pm`, `@tech-lead`, `@backend`, `@frontend`, `@ui-ux`, `@devops`, `@qa`

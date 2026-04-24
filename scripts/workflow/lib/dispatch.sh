@@ -21,7 +21,7 @@ cmd_dispatch() {
       --budget-override-reason) budget_override_reason="${2:-}"; shift ;;
       *)
         echo -e "${RED}Unknown option for dispatch: $1${NC}"
-        echo -e "Usage: bash scripts/workflow.sh dispatch [--launch|--headless] [--trust] [--dry-run] [--force-run] [--max-retries N] [--role name] [--budget-override-reason text]\n"
+        echo -e "Usage: bash scripts/flowctl.sh dispatch [--launch|--headless] [--trust] [--dry-run] [--force-run] [--max-retries N] [--role name] [--budget-override-reason text]\n"
         exit 1
         ;;
     esac
@@ -38,8 +38,8 @@ cmd_dispatch() {
 
   local step
   step=$(wf_require_initialized_workflow)
-  local workflow_id
-  workflow_id=$(WF_STATE_FILE="$STATE_FILE" python3 - <<'PY'
+  local flow_id
+  flow_id=$(WF_STATE_FILE="$STATE_FILE" python3 - <<'PY'
 import json
 import os
 import uuid
@@ -47,10 +47,10 @@ from pathlib import Path
 
 path = Path(os.environ["WF_STATE_FILE"])
 data = json.loads(path.read_text(encoding="utf-8"))
-wid = (data.get("workflow_id") or "").strip()
+wid = (data.get("flow_id") or "").strip()
 if not wid:
     wid = f"wf-{uuid.uuid4()}"
-    data["workflow_id"] = wid
+    data["flow_id"] = wid
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 print(wid)
 PY
@@ -189,7 +189,7 @@ gitnexus_find_related("{role}")
 1. Load context via layers trên (Layer 1 → Layer 2 → Layer 3, dừng khi đủ)
 2. Thực hiện công việc scope của @{role} cho step {step}
 3. Mọi quyết định quan trọng → ghi vào report (DECISION section)
-4. Nếu bị block → ghi vào NEEDS_SPECIALIST hoặc BLOCKER (KHÔNG dừng workflow)
+4. Nếu bị block → ghi vào NEEDS_SPECIALIST hoặc BLOCKER (KHÔNG dừng flowctl)
 5. Ghi kết quả vào report, update graph
 
 ---
@@ -233,7 +233,7 @@ graphify_update_node("step:{step}:{role}:done", {{
 ```
 
 **Quy tắc bắt buộc:**
-- KHÔNG gọi `bash scripts/workflow.sh approve`
+- KHÔNG gọi `bash scripts/flowctl.sh approve`
 - KHÔNG advance step — đây là quyền của PM
 - Nếu bị block → ghi BLOCKER + NEEDS_SPECIALIST, tiếp tục làm những gì có thể
 """
@@ -243,7 +243,7 @@ print("OK")
 PY
 
   echo -e "\n${GREEN}${BOLD}Dispatch bundles đã tạo:${NC} ${BOLD}${dispatch_dir#$REPO_ROOT/}${NC}"
-  echo -e "Trace: workflow_id=${BOLD}${workflow_id}${NC} run_id=${BOLD}${run_id}${NC}"
+  echo -e "Trace: flow_id=${BOLD}${flow_id}${NC} run_id=${BOLD}${run_id}${NC}"
   echo -e "Dùng các lệnh sau để chạy worker sessions song song:\n"
 
   local commands_file="$dispatch_dir/agent-commands.txt"
@@ -311,7 +311,7 @@ PY
       local report_path="$reports_dir/${role}-report.md"
       local log_path="$logs_dir/${role}.log"
       local capture_script="$REPO_ROOT/scripts/workflow/lib/stream_json_capture.py"
-      local correlation_id="${workflow_id}/${run_id}/${step}/${role}"
+      local correlation_id="${flow_id}/${run_id}/${step}/${role}"
       local role_chat_id
       role_chat_id=$(WF_ROLE_SESSIONS_FILE="$ROLE_SESSIONS_FILE" WF_ROLE="$role" python3 - <<'PY'
 import json
@@ -360,7 +360,7 @@ PY
         base_cmd="agent ${trust_part}--workspace \"$REPO_ROOT\" --resume \"$role_chat_id\""
       fi
       local headless_cmd
-      headless_cmd="${base_cmd} -p \"Thực hiện task theo brief, và GHI report đầy đủ vào file ${report_path}. Chỉ trả lời ngắn 'done' sau khi ghi file.\" --output-format stream-json --stream-partial-output 2>&1 | python3 \"${capture_script}\" --step \"${step}\" --role \"${role}\" --workflow-id \"${workflow_id}\" --run-id \"${run_id}\" --log-path \"${log_path}\" --heartbeats-path \"${HEARTBEATS_FILE}\""
+      headless_cmd="${base_cmd} -p \"Thực hiện task theo brief, và GHI report đầy đủ vào file ${report_path}. Chỉ trả lời ngắn 'done' sau khi ghi file.\" --output-format stream-json --stream-partial-output 2>&1 | python3 \"${capture_script}\" --step \"${step}\" --role \"${role}\" --flowctl-id \"${flow_id}\" --run-id \"${run_id}\" --log-path \"${log_path}\" --heartbeats-path \"${HEARTBEATS_FILE}\""
       local idem_key="step:${step}:role:${role}:mode:headless"
       local idem_decision
       idem_decision=$(WF_IDEMPOTENCY_FILE="$IDEMPOTENCY_FILE" WF_IDEMPOTENCY_KEY="$idem_key" WF_FORCE_RUN="$force_run" WF_MAX_RETRIES="$max_retries" python3 - <<'PY'
@@ -404,7 +404,7 @@ PY
         continue
       fi
       local budget_decision
-      budget_decision=$(wf_budget_prelaunch_check "$step" "$role" "$workflow_id" "$run_id" "$max_retries" "$dry_run" "$budget_override_reason" "$correlation_id")
+      budget_decision=$(wf_budget_prelaunch_check "$step" "$role" "$flow_id" "$run_id" "$max_retries" "$dry_run" "$budget_override_reason" "$correlation_id")
       if [[ "${budget_decision%%|*}" == "BLOCK" ]]; then
         echo -e "${RED}[budget] block @${role}:${NC} ${budget_decision#BLOCK|}"
         skipped=$((skipped + 1))
@@ -418,7 +418,7 @@ PY
       fi
       nohup bash -lc "$headless_cmd" >/dev/null 2>&1 &
       local worker_pid=$!
-      WF_IDEMPOTENCY_FILE="$IDEMPOTENCY_FILE" WF_IDEMPOTENCY_KEY="$idem_key" WF_STEP="$step" WF_ROLE="$role" WF_PID="$worker_pid" WF_LOG="$log_path" WF_REPORT="$report_path" WF_WORKFLOW_ID="$workflow_id" WF_RUN_ID="$run_id" WF_CORRELATION_ID="$correlation_id" WF_MAX_RETRIES="$max_retries" python3 - <<'PY'
+      WF_IDEMPOTENCY_FILE="$IDEMPOTENCY_FILE" WF_IDEMPOTENCY_KEY="$idem_key" WF_STEP="$step" WF_ROLE="$role" WF_PID="$worker_pid" WF_LOG="$log_path" WF_REPORT="$report_path" WF_WORKFLOW_ID="$flow_id" WF_RUN_ID="$run_id" WF_CORRELATION_ID="$correlation_id" WF_MAX_RETRIES="$max_retries" python3 - <<'PY'
 import json
 import os
 from datetime import datetime
@@ -435,7 +435,7 @@ data[key] = {
     "status": "launched",
     "step": int(os.environ["WF_STEP"]),
     "role": os.environ["WF_ROLE"],
-    "workflow_id": os.environ["WF_WORKFLOW_ID"],
+    "flow_id": os.environ["WF_WORKFLOW_ID"],
     "run_id": os.environ["WF_RUN_ID"],
     "correlation_id": os.environ["WF_CORRELATION_ID"],
     "pid": int(os.environ["WF_PID"]),
@@ -472,9 +472,9 @@ PY
       local launched=0
       while IFS='|' read -r role cmd; do
         [[ -z "$role" || -z "$cmd" ]] && continue
-        local correlation_id="${workflow_id}/${run_id}/${step}/${role}"
+        local correlation_id="${flow_id}/${run_id}/${step}/${role}"
         local budget_decision
-        budget_decision=$(wf_budget_prelaunch_check "$step" "$role" "$workflow_id" "$run_id" "$max_retries" "$dry_run" "$budget_override_reason" "$correlation_id")
+        budget_decision=$(wf_budget_prelaunch_check "$step" "$role" "$flow_id" "$run_id" "$max_retries" "$dry_run" "$budget_override_reason" "$correlation_id")
         if [[ "${budget_decision%%|*}" == "BLOCK" ]]; then
           echo -e "${RED}[budget] block @${role}:${NC} ${budget_decision#BLOCK|}"
           continue
@@ -501,9 +501,9 @@ PY
   else
     while IFS='|' read -r role _cmd; do
       [[ -z "$role" ]] && continue
-      local correlation_id="${workflow_id}/${run_id}/${step}/${role}"
+      local correlation_id="${flow_id}/${run_id}/${step}/${role}"
       local budget_decision
-      budget_decision=$(wf_budget_prelaunch_check "$step" "$role" "$workflow_id" "$run_id" "$max_retries" "true" "" "$correlation_id")
+      budget_decision=$(wf_budget_prelaunch_check "$step" "$role" "$flow_id" "$run_id" "$max_retries" "true" "" "$correlation_id")
       if [[ "${budget_decision%%|*}" == "BLOCK" ]]; then
         echo -e "${RED}[budget] block @${role}:${NC} ${budget_decision#BLOCK|}"
       else
@@ -512,7 +512,7 @@ PY
     done < "$commands_file"
   fi
 
-  echo -e "Sau khi workers xong, chạy: ${BOLD}bash scripts/workflow.sh collect${NC}\n"
+  echo -e "Sau khi workers xong, chạy: ${BOLD}bash scripts/flowctl.sh collect${NC}\n"
 }
 
 cmd_collect() {
@@ -522,7 +522,7 @@ cmd_collect() {
   local reports_dir="$REPO_ROOT/workflows/dispatch/step-$step/reports"
   if [[ ! -d "$reports_dir" ]]; then
     echo -e "${YELLOW}Chưa có thư mục reports: ${reports_dir#$REPO_ROOT/}${NC}"
-    echo -e "Chạy ${BOLD}bash scripts/workflow.sh dispatch${NC} trước.\n"
+    echo -e "Chạy ${BOLD}bash scripts/flowctl.sh dispatch${NC} trước.\n"
     exit 1
   fi
 
@@ -682,7 +682,7 @@ PY
       [[ -n "$trace_result" ]] && echo -e "${CYAN}${trace_result}${NC}"
     fi
   done
-  echo -e "Kiểm tra nhanh: ${BOLD}bash scripts/workflow.sh summary${NC}"
+  echo -e "Kiểm tra nhanh: ${BOLD}bash scripts/flowctl.sh summary${NC}"
 
   # Scan for NEEDS_SPECIALIST requests → trigger Phase B if any
   local merc_requests
@@ -701,7 +701,7 @@ for r in json.load(sys.stdin):
     print(f'  @{r.get(\"requested_by\",\"?\")} needs: {r.get(\"type\",\"?\")} — {r.get(\"blocking\",\"?\")}')
 "
     echo ""
-    echo -e "  Chạy: ${BOLD}bash scripts/workflow.sh mercenary spawn${NC}"
+    echo -e "  Chạy: ${BOLD}bash scripts/flowctl.sh mercenary spawn${NC}"
     echo -e "  Sau đó re-spawn blocked workers với mercenary outputs injected."
   fi
   echo ""

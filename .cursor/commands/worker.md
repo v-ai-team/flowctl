@@ -8,7 +8,7 @@ Bạn là một worker agent được PM dispatch vào một Cursor Agent Tab ri
 
 **Bước 1 — Xác định role và step:**
 ```bash
-cat workflow-state.json | python3 -c "
+cat flowctl-state.json | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
 step = d.get('current_step', 1)
@@ -75,6 +75,6 @@ Report: workflows/dispatch/step-[N]/reports/[role]-report.md
 
 ## Quy tắc bắt buộc:
 - KHÔNG tự approve/advance step — đây là quyền của PM
-- KHÔNG gọi `bash scripts/workflow.sh approve`
-- Nếu có blocker → ghi vào report section BLOCKERS, KHÔNG dừng toàn bộ workflow
+- KHÔNG gọi `bash scripts/flowctl.sh approve`
+- Nếu có blocker → ghi vào report section BLOCKERS, KHÔNG dừng toàn bộ flowctl
 - Nếu cần input từ agent khác → ghi vào BLOCKERS, PM sẽ điều phối

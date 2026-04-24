@@ -122,9 +122,9 @@ configure_cursor_mcp() {
       },
       "description": "Code intelligence engine — 16 MCP tools, git diff awareness"
     },
-    "workflow-state": {
+    "flowctl-state": {
       "command": "node",
-      "args": [".claude/mcp-workflow-state.js"],
+      "args": [".claude/mcp-flowctl-state.js"],
       "description": "Workflow state tracker — current step, approvals, blockers"
     }
   }
@@ -189,12 +189,12 @@ print_summary() {
   echo -e "  ${CYAN}Bước tiếp theo:${NC}"
   echo -e "  1. Mở Cursor và reload window (Cmd/Ctrl+Shift+P → Reload)"
   echo -e "  2. Kiểm tra MCP servers: Cursor → Settings → MCP"
-  echo -e "  3. Bắt đầu workflow: ${YELLOW}workflow start${NC}"
-  echo -e "  4. Xem trạng thái:   ${YELLOW}workflow status${NC}"
+  echo -e "  3. Bắt đầu flowctl: ${YELLOW}flowctl start${NC}"
+  echo -e "  4. Xem trạng thái:   ${YELLOW}flowctl status${NC}"
   echo ""
   echo -e "  ${CYAN}Files quan trọng:${NC}"
   echo -e "  • CLAUDE.md          — Orchestration guide cho agents"
-  echo -e "  • workflow-state.json — Trạng thái workflow hiện tại"
+  echo -e "  • flowctl-state.json — Trạng thái flowctl hiện tại"
   echo -e "  • .cursor/mcp.json   — MCP server configuration"
   echo -e "  • .graphify/graph.json — Codebase knowledge graph"
   echo ""

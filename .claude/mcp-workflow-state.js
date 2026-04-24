@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * mcp-workflow-state.js
- * Backward-compatible MCP server for workflow-state tools.
+ * mcp-flowctl-state.js
+ * Backward-compatible MCP server for flowctl-state tools.
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -14,11 +14,11 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = resolve(dirname(__filename), '..');
-const STATE_FILE = join(REPO_ROOT, 'workflow-state.json');
-const WORKFLOW_SCRIPT = join(REPO_ROOT, 'scripts', 'workflow.sh');
+const STATE_FILE = join(REPO_ROOT, 'flowctl-state.json');
+const FLOW_SCRIPT = join(REPO_ROOT, 'scripts', 'flowctl.sh');
 
 function runWorkflowCommand(args) {
-  const out = execFileSync('bash', [WORKFLOW_SCRIPT, ...args.map((arg) => String(arg))], {
+  const out = execFileSync('bash', [FLOW_SCRIPT, ...args.map((arg) => String(arg))], {
     cwd: REPO_ROOT,
     stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
@@ -28,7 +28,7 @@ function runWorkflowCommand(args) {
 
 function readWorkflowState() {
   if (!existsSync(STATE_FILE)) {
-    return { error: 'workflow-state.json not found. Run `bash scripts/workflow.sh init --project "Name"` first.' };
+    return { error: 'flowctl-state.json not found. Run `bash scripts/flowctl.sh init --project "Name"` first.' };
   }
   return JSON.parse(readFileSync(STATE_FILE, 'utf8'));
 }
@@ -69,20 +69,20 @@ function toolAdvanceStep(args = {}) {
 function toolRequestApproval(args = {}) {
   const note = args.note && String(args.note).trim()
     ? String(args.note)
-    : 'Approval requested via workflow-state MCP.';
+    : 'Approval requested via flowctl-state MCP.';
   const output = runWorkflowCommand(['decision', `[APPROVAL REQUEST] ${note}`]);
   return { ok: true, output, state: readWorkflowState() };
 }
 
 const tools = [
   {
-    name: 'workflow_get_state',
-    description: 'Read current workflow-state.json payload.',
+    name: 'flow_get_state',
+    description: 'Read current flowctl-state.json payload.',
     inputSchema: { type: 'object', properties: {} },
     handler: toolGetState,
   },
   {
-    name: 'workflow_advance_step',
+    name: 'flow_advance_step',
     description: 'Approve current step and move to the next step.',
     inputSchema: {
       type: 'object',
@@ -95,8 +95,8 @@ const tools = [
     handler: toolAdvanceStep,
   },
   {
-    name: 'workflow_request_approval',
-    description: 'Record an approval request note in workflow decisions.',
+    name: 'flow_request_approval',
+    description: 'Record an approval request note in flowctl decisions.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -106,7 +106,7 @@ const tools = [
     handler: toolRequestApproval,
   },
   {
-    name: 'workflow_add_blocker',
+    name: 'flow_add_blocker',
     description: 'Add blocker to current step.',
     inputSchema: {
       type: 'object',
@@ -118,7 +118,7 @@ const tools = [
     handler: toolAddBlocker,
   },
   {
-    name: 'workflow_add_decision',
+    name: 'flow_add_decision',
     description: 'Add decision to current step.',
     inputSchema: {
       type: 'object',
@@ -132,7 +132,7 @@ const tools = [
 ];
 
 const server = new Server(
-  { name: 'workflow-state', version: '1.0.0' },
+  { name: 'flowctl-state', version: '1.0.0' },
   { capabilities: { tools: {} } },
 );
 

@@ -1,7 +1,7 @@
 # Architecture — Global Workflow CLI
 
 ## Overview
-Hệ thống được tổ chức theo mô hình CLI-first, trong đó global command là cổng vào duy nhất cho các thao tác workflow (`init`, `dispatch`, `collect`, `gate-check`, `approve`, ...).
+Hệ thống được tổ chức theo mô hình CLI-first, trong đó global command là cổng vào duy nhất cho các thao tác flowctl (`init`, `dispatch`, `collect`, `gate-check`, `approve`, ...).
 
 ## High-Level Components
 - **Global CLI Entrypoint**
@@ -11,16 +11,16 @@ Hệ thống được tổ chức theo mô hình CLI-first, trong đó global co
   - Giữ logic orchestration, gating, reporting, retro.
   - Được gọi thông qua command global thay vì path relative trực tiếp.
 - **Project Scaffold Generator**
-  - Chịu trách nhiệm bootstrap `.cursor`, `.claude`, `workflow-state.json`.
+  - Chịu trách nhiệm bootstrap `.cursor`, `.claude`, `flowctl-state.json`.
   - Hỗ trợ idempotent create + safe defaults.
 - **State & Evidence Layer**
-  - `workflow-state.json`: nguồn dữ liệu trạng thái.
+  - `flowctl-state.json`: nguồn dữ liệu trạng thái.
   - `workflows/gates/reports/*`, `workflows/runtime/evidence/*`: logs và bằng chứng.
 
 ## Command Flow
 1. User gọi global CLI command.
 2. CLI resolve project root hiện tại.
-3. CLI chạy workflow engine với context project đó.
+3. CLI chạy flowctl engine với context project đó.
 4. Engine cập nhật state/gates/evidence như quy trình hiện có.
 
 ## Compatibility Strategy

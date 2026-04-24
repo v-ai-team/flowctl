@@ -3,7 +3,7 @@
 
 ## 1. Tổng Quan Review Process
 
-Review và approval là bắt buộc sau mỗi workflow step. Không có step nào được bỏ qua. Mục đích:
+Review và approval là bắt buộc sau mỗi flowctl step. Không có step nào được bỏ qua. Mục đích:
 - Đảm bảo chất lượng trước khi chuyển sang phase tiếp theo
 - Cung cấp human oversight tại mỗi decision point
 - Phát hiện issues sớm để giảm chi phí fix
@@ -485,7 +485,7 @@ Target metrics:
 ## 9. Liên Kết
 
 - Global Rules: `.cursor/rules/global-rules.md`
-- Workflow Rules: `.cursor/rules/workflow-rules.md`
+- Workflow Rules: `.cursor/rules/flowctl-rules.md`
 - Step Summary Template: `workflows/templates/step-summary-template.md`
 - Review Checklist Template: `workflows/templates/review-checklist-template.md`
 - Approval Request Template: `workflows/templates/approval-request-template.md`

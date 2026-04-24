@@ -21,7 +21,7 @@ const GEN_FILE    = join(CACHE, '_gen.json');
 const BASELINE_F  = join(CACHE, '_baselines.json');
 const EVENTS_F    = join(CACHE, 'events.jsonl');
 const STATS_F     = join(CACHE, 'session-stats.json');
-const STATE       = join(REPO, 'workflow-state.json');
+const STATE       = join(REPO, 'flowctl-state.json');
 
 // Anthropic Sonnet 4.6 pricing (per 1M tokens)
 const PRICE = { input: 3.0, output: 15.0 };
@@ -230,7 +230,7 @@ function tool_wf_state() {
   const cached = cacheGet('wf_state');
   if (cached) return { ...cached, _cache: 'hit' };
 
-  if (!existsSync(STATE)) return { error: 'workflow-state.json not found', _cache: 'miss' };
+  if (!existsSync(STATE)) return { error: 'flowctl-state.json not found', _cache: 'miss' };
   const d = JSON.parse(readFileSync(STATE, 'utf8'));
   const step = String(d.current_step ?? 0);
   const s = (d.steps ?? {})[step] ?? {};
@@ -293,7 +293,7 @@ function tool_step_context({ step } = {}) {
   const key = `step_ctx_${currentStep}`;
   const cached = cacheGet(key);
   if (cached) return { ...cached, _cache: 'hit' };
-  if (!stateData) return { error: 'workflow-state.json not found', _cache: 'miss' };
+  if (!stateData) return { error: 'flowctl-state.json not found', _cache: 'miss' };
 
   const s = (stateData.steps ?? {})[String(currentStep)] ?? {};
   const priorDecisions = [];
@@ -492,7 +492,7 @@ function tool_cache_stats() {
 // ── Tool registry ──────────────────────────────────────────────
 
 const TOOLS = [
-  { name: 'wf_state',          description: 'Current workflow state. Replaces cat workflow-state.json + bash status. ~95% fewer tokens.',                           inputSchema: { type: 'object', properties: {} },                                                                                                fn: withLogging('wf_state', tool_wf_state) },
+  { name: 'wf_state',          description: 'Current flowctl state. Replaces cat flowctl-state.json + bash status. ~95% fewer tokens.',                           inputSchema: { type: 'object', properties: {} },                                                                                                fn: withLogging('wf_state', tool_wf_state) },
   { name: 'wf_git',            description: 'Git snapshot (branch, commits, changes). Replaces git log/status/diff. ~92% fewer tokens.',                           inputSchema: { type: 'object', properties: { commits: { type: 'number' } } },                                                               fn: withLogging('wf_git', (a) => tool_git_context(a)) },
   { name: 'wf_step_context',   description: 'Full step context including prior decisions, blockers, war room, digest summary. Replaces reading 5+ files.',          inputSchema: { type: 'object', properties: { step: { type: 'number' } } },                                                                 fn: withLogging('wf_step_context', (a) => tool_step_context(a)) },
   { name: 'wf_files',          description: 'Project file listing. Replaces ls + find.',                                                                            inputSchema: { type: 'object', properties: { dir: { type: 'string' }, pattern: { type: 'string' }, depth: { type: 'number' } } },          fn: withLogging('wf_files', (a) => tool_project_files(a)) },

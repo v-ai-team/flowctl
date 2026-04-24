@@ -1,5 +1,5 @@
 {
-  "_comment": "Workflow state machine template",
+  "_comment": "flowctl state machine template (same schema as workflow-state)",
   "version": "1.0.0",
   "project_name": "",
   "project_description": "",

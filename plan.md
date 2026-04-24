@@ -1,7 +1,7 @@
 # Workflow Orchestration Improvement Plan
 
 Updated: 2026-04-23
-Owner: PM Gateway (`workflow-conduct`)
+Owner: PM Gateway (`flowctl-conduct`)
 
 ## Goal
 
@@ -21,12 +21,12 @@ Build a step-based agent orchestration flow where:
 
 ### P0 — Must-Have Safety Controls
 
-- [x] Add one-command workflow entrypoint in `scripts/workflow.sh` (`brainstorm`)
-- [x] Add slash command scaffolding for `/workflow-conduct`
+- [x] Add one-command flowctl entrypoint in `scripts/flowctl.sh` (`brainstorm`)
+- [x] Add slash command scaffolding for `/flowctl-conduct`
 - [x] Enforce step-based role delegation (`team delegate`)
 - [x] Remove forced `--trust` in delegate path to avoid permission failures
 - [x] Add QA gate policy file: `workflows/gates/qa-gate.v1.json`
-- [x] Add explicit gate check command: `bash scripts/workflow.sh gate-check`
+- [x] Add explicit gate check command: `bash scripts/flowctl.sh gate-check`
 - [x] Block `approve` when gate fails (default fail-closed)
 - [x] Keep controlled bypass: `approve --skip-gate --by "..."`
 - [x] Fix argument parsing bugs in:
@@ -69,34 +69,34 @@ Build a step-based agent orchestration flow where:
 ### Core
 
 - Start or continue orchestration:
-  - `bash scripts/workflow.sh brainstorm "<topic>"`
+  - `bash scripts/flowctl.sh brainstorm "<topic>"`
 - Delegate current step roles:
-  - `bash scripts/workflow.sh team delegate`
+  - `bash scripts/flowctl.sh team delegate`
 - Collect worker reports:
-  - `bash scripts/workflow.sh collect`
+  - `bash scripts/flowctl.sh collect`
 - Monitor role runtime state:
-  - `bash scripts/workflow.sh team monitor --stale-seconds 300`
+  - `bash scripts/flowctl.sh team monitor --stale-seconds 300`
 - Recover failed role safely:
-  - `bash scripts/workflow.sh team recover --role <role> --mode resume|retry|rollback --dry-run`
+  - `bash scripts/flowctl.sh team recover --role <role> --mode resume|retry|rollback --dry-run`
 - Check gate:
-  - `bash scripts/workflow.sh gate-check`
+  - `bash scripts/flowctl.sh gate-check`
 - Approve step (when gate passes):
-  - `bash scripts/workflow.sh approve --by "Your Name"`
+  - `bash scripts/flowctl.sh approve --by "Your Name"`
 - PM release dashboard before approval:
-  - `bash scripts/workflow.sh release-dashboard`
+  - `bash scripts/flowctl.sh release-dashboard`
 
 ### Safety
 
 - Dry run delegate:
-  - `bash scripts/workflow.sh team delegate --dry-run`
+  - `bash scripts/flowctl.sh team delegate --dry-run`
 - Controlled bypass (exception only):
-  - `bash scripts/workflow.sh approve --skip-gate --by "Your Name"`
+  - `bash scripts/flowctl.sh approve --skip-gate --by "Your Name"`
 - Run TDD regression suite before major refactor:
-  - `bash scripts/test-workflow-tdd-regression.sh`
+  - `bash scripts/test-flowctl-tdd-regression.sh`
 - Run chaos reliability suite for orchestration failure modes:
-  - `bash scripts/test-workflow-chaos.sh`
+  - `bash scripts/test-flowctl-chaos.sh`
 - Manual breaker recovery path:
-  - `bash scripts/workflow.sh team budget-reset --reason "manual recovery"`
+  - `bash scripts/flowctl.sh team budget-reset --reason "manual recovery"`
 - Update role policy guardrails:
   - `workflows/policies/role-policy.v1.json`
 

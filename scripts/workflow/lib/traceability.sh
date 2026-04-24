@@ -72,7 +72,7 @@ idem_entry = idem.get(key, {})
 
 requirement = (state.get("project_name") or "").strip() or "Unnamed project"
 task_name = (step_obj.get("name") or "").strip() or f"Step {step}"
-workflow_id = idem_entry.get("workflow_id") or state.get("workflow_id") or ""
+flow_id = idem_entry.get("flow_id") or state.get("flow_id") or ""
 run_id = idem_entry.get("run_id") or ""
 correlation_id = idem_entry.get("correlation_id") or ""
 
@@ -80,7 +80,7 @@ event_id_raw = f"task|{step}|{role}|{report_rel}|{run_id or 'no-run'}"
 event_id = hashlib.sha256(event_id_raw.encode("utf-8")).hexdigest()[:24]
 
 payload = {
-    "workflow_id": workflow_id,
+    "flow_id": flow_id,
     "step": int(step),
     "role": role,
     "requirement": requirement,
@@ -117,14 +117,14 @@ step_obj = state.get("steps", {}).get(step, {})
 
 requirement = (state.get("project_name") or "").strip() or "Unnamed project"
 task_name = (step_obj.get("name") or "").strip() or f"Step {step}"
-workflow_id = state.get("workflow_id") or ""
+flow_id = state.get("flow_id") or ""
 approval_status = (step_obj.get("approval_status") or decision or "").strip()
 
 event_id_raw = f"approval|{step}|{approval_status}|{approved_by}|{manifest_rel}"
 event_id = hashlib.sha256(event_id_raw.encode("utf-8")).hexdigest()[:24]
 
 payload = {
-    "workflow_id": workflow_id,
+    "flow_id": flow_id,
     "step": int(step),
     "requirement": requirement,
     "task": task_name,

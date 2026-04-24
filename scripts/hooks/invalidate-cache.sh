@@ -4,7 +4,7 @@
 #
 # Called by:
 #   - git post-commit hook  → scope=git
-#   - workflow.sh approve/start/collect → scope=state
+#   - flowctl.sh approve/start/collect → scope=state
 #   - SessionStart hook → scope=all (full refresh)
 
 SCOPE="${1:-all}"

@@ -2,8 +2,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-STATE_FILE="$REPO_ROOT/workflow-state.json"
-WORKFLOW_SCRIPT="$REPO_ROOT/scripts/workflow.sh"
+STATE_FILE="$REPO_ROOT/flowctl-state.json"
+WORKFLOW_SCRIPT="$REPO_ROOT/scripts/flowctl.sh"
 ARTIFACT_DIR="$REPO_ROOT/workflows/evidence"
 STAMP="$(date '+%Y%m%d-%H%M%S')"
 RUN_DIR="$ARTIFACT_DIR/$STAMP"
@@ -21,7 +21,7 @@ if [[ ! -x "$WORKFLOW_SCRIPT" ]]; then
   chmod +x "$WORKFLOW_SCRIPT"
 fi
 
-BACKUP_FILE="$RUN_DIR/workflow-state.backup.json"
+BACKUP_FILE="$RUN_DIR/flowctl-state.backup.json"
 cp "$STATE_FILE" "$BACKUP_FILE"
 
 cleanup() {
@@ -53,7 +53,7 @@ echo "- Repo: \`$REPO_ROOT\`" >> "$SUMMARY_FILE"
 echo "- Timestamp: \`$STAMP\`" >> "$SUMMARY_FILE"
 echo "" >> "$SUMMARY_FILE"
 
-run_cmd "Initialize workflow" bash "$WORKFLOW_SCRIPT" init --project "E2E Skill Validation"
+run_cmd "Initialize flowctl" bash "$WORKFLOW_SCRIPT" init --project "E2E Skill Validation"
 STATUS_OUTPUT="$(bash "$WORKFLOW_SCRIPT" status)"
 echo "$STATUS_OUTPUT" | tee -a "$LOG_FILE" >/dev/null
 assert_contains "Step 1" "$STATUS_OUTPUT" "status after init"
@@ -80,7 +80,7 @@ DECISION: Use delegate depth limit = 3.
 NEXT: Assign tasks to backend/frontend/devops agents.
 EOF
 
-run_cmd "Collect worker reports into workflow state" bash "$WORKFLOW_SCRIPT" collect
+run_cmd "Collect worker reports into flowctl state" bash "$WORKFLOW_SCRIPT" collect
 SUMMARY_OUTPUT="$(bash "$WORKFLOW_SCRIPT" summary)"
 echo "$SUMMARY_OUTPUT" | tee -a "$LOG_FILE" >/dev/null
 assert_contains "deliverables=" "$(python3 - <<PY
@@ -99,7 +99,7 @@ NEXT_STEP="$(python3 -c "import json;d=json.load(open('$STATE_FILE'));print(d['c
   echo "- [x] Init/start/dispatch/collect/approve commands run successfully."
   echo "- [x] Dry-run dispatch generated brief bundle and command list."
   echo "- [x] Collect parsed \`DELIVERABLE\`, \`DECISION\`, \`BLOCKER\` from worker reports."
-  echo "- [x] Approve advanced workflow to next step (\`$NEXT_STEP\`)."
+  echo "- [x] Approve advanced flowctl to next step (\`$NEXT_STEP\`)."
   echo ""
   echo "## Evidence"
   echo "- Full command log: \`$LOG_FILE\`"
@@ -107,5 +107,5 @@ NEXT_STEP="$(python3 -c "import json;d=json.load(open('$STATE_FILE'));print(d['c
   echo "- Test run directory: \`$RUN_DIR\`"
 } >> "$SUMMARY_FILE"
 
-echo "E2E workflow test passed."
+echo "E2E flowctl test passed."
 echo "Summary: $SUMMARY_FILE"

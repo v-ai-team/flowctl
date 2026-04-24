@@ -2,8 +2,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORKFLOW="$REPO_ROOT/scripts/workflow.sh"
-STATE_FILE="$REPO_ROOT/workflow-state.json"
+WORKFLOW="$REPO_ROOT/scripts/flowctl.sh"
+STATE_FILE="$REPO_ROOT/flowctl-state.json"
 RUNTIME_DIR="$REPO_ROOT/workflows/runtime"
 TRACEABILITY_FILE="$RUNTIME_DIR/traceability-map.jsonl"
 POLICY_FILE="$REPO_ROOT/workflows/policies/budget-policy.v1.json"
@@ -17,12 +17,25 @@ SUMMARY_FILE="$RUN_DIR/summary.md"
 mkdir -p "$RUN_DIR"
 mkdir -p "$RUNTIME_DIR"
 
+# Fresh budget counters + policy aligned with repo template (avoids stale breaker / bad caps)
+BUDGET_TPL="$REPO_ROOT/templates/budget-policy.v1.json"
+if [[ -f "$BUDGET_TPL" ]]; then
+  mkdir -p "$(dirname "$POLICY_FILE")"
+  cp "$BUDGET_TPL" "$POLICY_FILE"
+fi
+rm -f "$BUDGET_STATE_FILE"
+
 if [[ ! -f "$STATE_FILE" ]]; then
-  echo "Missing workflow-state.json" >&2
-  exit 1
+  TPL="$REPO_ROOT/templates/flowctl-state.template.json"
+  if [[ -f "$TPL" ]]; then
+    cp "$TPL" "$STATE_FILE"
+  else
+    echo "Missing flowctl-state.json and template: $TPL" >&2
+    exit 1
+  fi
 fi
 
-BACKUP_STATE="$RUN_DIR/workflow-state.backup.json"
+BACKUP_STATE="$RUN_DIR/flowctl-state.backup.json"
 cp "$STATE_FILE" "$BACKUP_STATE"
 BACKUP_POLICY="$RUN_DIR/budget-policy.backup.json"
 if [[ -f "$POLICY_FILE" ]]; then
@@ -34,7 +47,7 @@ cleanup() {
   if [[ -f "$BACKUP_POLICY" ]]; then
     cp "$BACKUP_POLICY" "$POLICY_FILE"
   fi
-  rm -rf "$REPO_ROOT/.workflow-lock" 2>/dev/null || true
+  rm -rf "$REPO_ROOT/.flowctl-lock" 2>/dev/null || true
   rm -f "$TRACEABILITY_FILE" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -100,7 +113,7 @@ PY
 log "# TDD Regression Run ($STAMP)"
 log "repo=$REPO_ROOT"
 
-expect_success "Initialize isolated test workflow" bash "$WORKFLOW" init --project "TDD Regression"
+expect_success "Initialize isolated test flowctl" bash "$WORKFLOW" init --project "TDD Regression"
 python3 - <<PY
 import json
 from pathlib import Path
@@ -318,10 +331,10 @@ PY
 assert_contains "$gate_events" "\"status\": \"BYPASS\"" "gate report should include BYPASS event"
 assert_contains "$gate_events" "\"actor\": \"TDD-BYPASS\"" "gate report should include bypass actor"
 
-expect_failure "Mutating command should fail when active lock held" bash -lc "mkdir \"$REPO_ROOT/.workflow-lock\" && echo \"\$\$\" > \"$REPO_ROOT/.workflow-lock/pid\" && bash \"$WORKFLOW\" decision \"lock-conflict\""
-rm -rf "$REPO_ROOT/.workflow-lock"
+expect_failure "Mutating command should fail when active lock held" bash -lc "mkdir \"$REPO_ROOT/.flowctl-lock\" && echo \"\$\$\" > \"$REPO_ROOT/.flowctl-lock/pid\" && bash \"$WORKFLOW\" decision \"lock-conflict\""
+rm -rf "$REPO_ROOT/.flowctl-lock"
 
-expect_success "Reset command should return workflow to step 1" bash -lc "printf 'yes\n' | bash \"$WORKFLOW\" reset 1"
+expect_success "Reset command should return flowctl to step 1" bash -lc "printf 'yes\n' | bash \"$WORKFLOW\" reset 1"
 step_after_reset="$(python3 -c "import json;d=json.load(open('$STATE_FILE'));print(d['current_step'])")"
 assert_contains "$step_after_reset" "1" "reset should set current_step back to 1"
 
@@ -337,7 +350,7 @@ assert_contains "$step_after_reset" "1" "reset should set current_step back to 1
   echo "- collect merges deliverables/decisions/blockers"
   echo "- collect idempotency on repeated runs"
   echo "- gate fails on open blocker, passes after resolve"
-  echo "- approve advances workflow step when gate passes"
+  echo "- approve advances flowctl step when gate passes"
   echo "- idempotency skip + force-run override behavior"
   echo "- role policy denies restricted trust mode"
   echo "- team monitor reports runtime role statuses"
@@ -349,7 +362,7 @@ assert_contains "$step_after_reset" "1" "reset should set current_step back to 1
   echo "- approve argument validation (--by requires value)"
   echo "- approve --skip-gate writes BYPASS gate audit"
   echo "- active lock blocks mutating command"
-  echo "- reset flow returns workflow to requested step"
+  echo "- reset flow returns flowctl to requested step"
 } > "$SUMMARY_FILE"
 
 echo "TDD regression suite passed."

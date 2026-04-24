@@ -247,13 +247,13 @@ Khi có urgency hợp lý:
 
 ### 5.5 PM Pre-Approval Checklist (Bắt buộc)
 Trước khi chạy `approve`, PM hoặc lead agent PHẢI kiểm tra theo thứ tự:
-1. `bash scripts/workflow.sh release-dashboard --no-write`
+1. `bash scripts/flowctl.sh release-dashboard --no-write`
    - `approval_ready: yes`
    - `breaker_state: closed`
-2. `bash scripts/workflow.sh gate-check`
+2. `bash scripts/flowctl.sh gate-check`
    - Gate phải PASS (không dùng bypass trừ khi có quyết định rõ ràng)
 3. Chỉ khi 1 và 2 đều đạt mới được:
-   - `bash scripts/workflow.sh approve --by "Approver Name"`
+   - `bash scripts/flowctl.sh approve --by "Approver Name"`
 
 ## 6. Parallel Execution Rules
 
@@ -327,17 +327,17 @@ Format: Quick async retrospective (15 phút hoặc async document)
 ## 8. Emergency Procedures
 
 ### 8.1 Production Hotfix Trong Khi Workflow Đang Chạy
-1. PM quyết định suspend workflow hay không (trong 1 giờ)
+1. PM quyết định suspend flowctl hay không (trong 1 giờ)
 2. Tạo `hotfix/{issue}-{description}` branch từ `main`
 3. Team hotfix: DevOps + Tech Lead + relevant Backend/Frontend Dev
 4. QA sign-off required trước khi deploy (expedited, 2-4 giờ)
-5. Merge hotfix vào cả `main` và `develop`/workflow branch
-6. Resume workflow sau khi hotfix stable
+5. Merge hotfix vào cả `main` và `develop`/flowctl branch
+6. Resume flowctl sau khi hotfix stable
 
 ### 8.2 Workflow Rollback (Về Step Trước)
-1. PM PHẢI approve workflow reset (formal decision)
+1. PM PHẢI approve flowctl reset (formal decision)
 2. Document lý do rollback trong detail
-3. Update Graphify: `graphify update "workflow" --rollback-to "step:{N}"`
+3. Update Graphify: `graphify update "flowctl" --rollback-to "step:{N}"`
 4. GitNexus: Xác định commits nào cần revert
 5. Notify toàn bộ team với impact assessment
 6. Re-plan affected steps với updated timeline

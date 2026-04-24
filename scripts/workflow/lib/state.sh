@@ -68,15 +68,18 @@ with open('$STATE_FILE', 'w') as f:
 " 2>/dev/null
 }
 
-wf_require_initialized_workflow() {
+wf_require_initialized_flow() {
   local step
   step=$(wf_json_get "current_step")
   if [[ -z "$step" || "$step" == "0" ]]; then
-    echo -e "${YELLOW}Workflow chưa được khởi tạo. Chạy: bash scripts/workflow.sh init${NC}" >&2
+    echo -e "${YELLOW}Workflow chưa được khởi tạo. Chạy: bash scripts/flowctl.sh init${NC}" >&2
     exit 1
   fi
   echo "$step"
 }
+
+# Canonical name in older modules / docs
+wf_require_initialized_workflow() { wf_require_initialized_flow "$@"; }
 
 wf_get_step_name() {
   local step="$1"
@@ -107,6 +110,7 @@ PY
 json_get() { wf_warn_deprecated "json_get" "wf_json_get"; wf_json_get "$@"; }
 json_set() { wf_warn_deprecated "json_set" "wf_json_set"; wf_json_set "$@"; }
 json_append() { wf_warn_deprecated "json_append" "wf_json_append"; wf_json_append "$@"; }
+require_initialized_flow() { wf_warn_deprecated "require_initialized_flow" "wf_require_initialized_flow"; wf_require_initialized_flow "$@"; }
 require_initialized_workflow() { wf_warn_deprecated "require_initialized_workflow" "wf_require_initialized_workflow"; wf_require_initialized_workflow "$@"; }
 get_step_name() { wf_warn_deprecated "get_step_name" "wf_get_step_name"; wf_get_step_name "$@"; }
 get_step_agent() { wf_warn_deprecated "get_step_agent" "wf_get_step_agent"; wf_get_step_agent "$@"; }

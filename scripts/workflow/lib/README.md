@@ -1,6 +1,6 @@
 # Workflow Lib Architecture
 
-This folder contains modular building blocks for the workflow engine.
+This folder contains modular building blocks for the flowctl engine.
 
 ## Module Boundaries
 
@@ -9,13 +9,13 @@ This folder contains modular building blocks for the workflow engine.
 - `common.sh`
   - Shared shell helpers and output formatting (`wf_now`, `wf_today`, `wf_ensure_dir`, colors).
 - `state.sh`
-  - State read/write helpers and workflow metadata helpers.
+  - State read/write helpers and flowctl metadata helpers.
 - `evidence.sh`
   - Immutable evidence manifest capture and checksum verification for step artifacts.
 - `traceability.sh`
   - Append-only traceability map linking requirement, task, run metadata, evidence, and approval decisions.
 - `lock.sh`
-  - Concurrency control (`wf_acquire_workflow_lock`, stale lock reclaim).
+  - Concurrency control (`wf_acquire_flow_lock`, stale lock reclaim).
 - `gate.sh`
   - Gate evaluation and gate report audit trail.
 - `budget.sh`
@@ -29,7 +29,7 @@ This folder contains modular building blocks for the workflow engine.
 
 ## Entry Point Contract
 
-`scripts/workflow.sh` is the only CLI entrypoint. It should:
+`scripts/flowctl.sh` is the only CLI entrypoint. It should:
 
 1. load modules in dependency order (`config` first),
 2. define command handlers that remain in entrypoint (if any),
@@ -45,4 +45,4 @@ This folder contains modular building blocks for the workflow engine.
 
 Run regression suite after every structural change:
 
-`bash scripts/test-workflow-tdd-regression.sh`
+`bash scripts/test-flowctl-tdd-regression.sh`

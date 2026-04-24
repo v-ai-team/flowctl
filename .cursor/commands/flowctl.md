@@ -1,8 +1,8 @@
 ---
-description: PM điều phối workflow step thông minh — War Room → Dispatch → Collect → Phase B → Approve
+description: PM điều phối flowctl step thông minh — War Room → Dispatch → Collect → Phase B → Approve
 ---
 
-Bạn là PM Agent. Thực hiện workflow step theo quy trình thông minh dưới đây.
+Bạn là PM Agent. Thực hiện flowctl step theo quy trình thông minh dưới đây.
 
 Topic/context: $ARGUMENTS
 
@@ -13,8 +13,8 @@ Topic/context: $ARGUMENTS
 ### PHASE 0 — Complexity Assessment
 
 ```bash
-workflow status
-workflow complexity
+flowctl status
+flowctl complexity
 ```
 
 - Score 1-2 → Skip War Room, dispatch thẳng (PHASE A)
@@ -25,7 +25,7 @@ workflow complexity
 ### PHASE 0b — War Room (chỉ khi complexity ≥ 3)
 
 ```bash
-workflow cursor-dispatch
+flowctl cursor-dispatch
 ```
 
 Lệnh này tự phát hiện complexity và output **War Room Spawn Board** (PM + TechLead).
@@ -44,7 +44,7 @@ graphify_query("step:{N-1}:outcomes")
 
 Khi cả 2 hoàn thành:
 ```bash
-workflow cursor-dispatch --merge
+flowctl cursor-dispatch --merge
 ```
 → Tạo `context-digest.md` từ 2 outputs → sẵn sàng Phase A
 
@@ -53,7 +53,7 @@ workflow cursor-dispatch --merge
 ### PHASE A — Dispatch Full Team
 
 ```bash
-workflow cursor-dispatch --skip-war-room
+flowctl cursor-dispatch --skip-war-room
 ```
 
 PM dùng **Task tool** để spawn tất cả worker agents SONG SONG:
@@ -81,7 +81,7 @@ Mỗi worker agent phải:
 Khi tất cả workers hoàn thành:
 
 ```bash
-workflow collect
+flowctl collect
 ```
 
 Collect tự động:
@@ -94,7 +94,7 @@ Collect tự động:
 ### PHASE B — Mercenary Support (nếu collect báo cần)
 
 ```bash
-workflow mercenary spawn
+flowctl mercenary spawn
 ```
 
 Spawn mercenary specialists SONG SONG (ít hơn Phase A):
@@ -103,7 +103,7 @@ Spawn mercenary specialists SONG SONG (ít hơn Phase A):
 
 Sau đó re-spawn các blocked workers:
 ```bash
-workflow dispatch --role [blocked-role]
+flowctl dispatch --role [blocked-role]
 ```
 (mercenary outputs đã được inject vào brief tự động)
 
@@ -112,8 +112,8 @@ workflow dispatch --role [blocked-role]
 ### GATE CHECK + APPROVAL RECOMMENDATION
 
 ```bash
-workflow gate-check
-workflow release-dashboard --no-write
+flowctl gate-check
+flowctl release-dashboard --no-write
 ```
 
 Trình bày cho user:
@@ -148,8 +148,8 @@ Trình bày cho user:
 
 **Lý do**: [2-3 câu]
 
-**Nếu APPROVE**: `workflow approve --by "PM"`
-→ Sau đó: `workflow retro` (capture lessons)
+**Nếu APPROVE**: `flowctl approve --by "PM"`
+→ Sau đó: `flowctl retro` (capture lessons)
 
 **Nếu CONDITIONAL**: [items cần fix trong 48h]
 **Nếu REJECT**: [lý do + next steps]
@@ -197,7 +197,7 @@ gitnexus_impact_analysis("{file}")       ← trước khi sửa code
 
 Sau khi user approve, PM chạy:
 ```bash
-workflow retro
+flowctl retro
 ```
 → Extract patterns → `.graphify/lessons.json`
 → Lessons này tự động inject vào War Room của step tiếp theo

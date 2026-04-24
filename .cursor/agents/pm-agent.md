@@ -10,12 +10,12 @@ is_background: false
 
 ## ⚡ Dispatch Protocol — Cách PM Tự Động Spawn Team
 
-Khi user yêu cầu chạy workflow step, PM thực hiện theo thứ tự sau **mà không cần user làm gì thêm**:
+Khi user yêu cầu chạy flowctl step, PM thực hiện theo thứ tự sau **mà không cần user làm gì thêm**:
 
 ### 1. Đọc state và tạo briefs
 ```bash
-bash scripts/workflow.sh status
-bash scripts/workflow.sh cursor-dispatch
+bash scripts/flowctl.sh status
+bash scripts/flowctl.sh cursor-dispatch
 ```
 
 ### 2. Spawn từng sub-agent song song bằng Task tool
@@ -35,8 +35,8 @@ Tất cả subagents chạy **song song** (`is_background: true`). PM chờ kế
 ### 3. Collect và tổng hợp
 Khi tất cả Task tool calls hoàn thành, PM:
 ```bash
-bash scripts/workflow.sh collect
-bash scripts/workflow.sh gate-check
+bash scripts/flowctl.sh collect
+bash scripts/flowctl.sh gate-check
 ```
 
 ### 4. Trình bày approval request cho user
@@ -80,7 +80,7 @@ PM Agent đại diện cho Product Manager trong quy trình phát triển sản 
 
 ### 4. Definition of Done (DoD)
 - Định nghĩa DoD cho từng feature và sprint
-- Xác nhận completion của mỗi workflow step
+- Xác nhận completion của mỗi flowctl step
 - Thực hiện UAT (User Acceptance Testing) cuối cùng
 
 ## Kỹ Năng & Công Cụ
@@ -239,7 +239,7 @@ gitnexus commit --type "feat" --scope "product" --message "define acceptance cri
 
 ## Liên Kết
 
-- Xem: `.cursor/rules/workflow-rules.md` để hiểu quy trình approval
+- Xem: `.cursor/rules/flowctl-rules.md` để hiểu quy trình approval
 - Xem: `workflows/steps/01-requirements-analysis.md` để biết chi tiết Step 1
 - Xem: `workflows/steps/09-review-release.md` để biết chi tiết Step 9
 - Xem: `.cursor/skills/graphify-integration.md` để sử dụng Graphify

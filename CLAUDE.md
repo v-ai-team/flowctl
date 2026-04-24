@@ -6,8 +6,8 @@
 Khi bắt đầu một session mới, dùng **MCP tools** (không phải bash — tiết kiệm ~95% token):
 
 ```
-# 1. Đọc workflow state
-wf_state()              ← thay cho: cat workflow-state.json + bash scripts/workflow.sh status
+# 1. Đọc flowctl state
+wf_state()              ← thay cho: cat flowctl-state.json + bash scripts/flowctl.sh status
 
 # 2. Đọc context đầy đủ của step hiện tại
 wf_step_context()       ← thay cho: đọc 5+ files riêng lẻ
@@ -24,7 +24,7 @@ graphify_query("project:requirements")
 
 ### Nguyên Tắc Kích Hoạt Agent
 
-**Chỉ kích hoạt agent phù hợp với step hiện tại.** Đọc `workflow-state.json` để biết step nào đang active, sau đó dùng agent tương ứng.
+**Chỉ kích hoạt agent phù hợp với step hiện tại.** Đọc `flowctl-state.json` để biết step nào đang active, sau đó dùng agent tương ứng.
 
 | Step | Agent Chính | Agent Hỗ Trợ | File Agent |
 |------|-------------|--------------|------------|
@@ -60,7 +60,7 @@ Thay thế bash read operations. Cache tự động, structured JSON output.
 
 ```
 wf_state()                      — Workflow state (step, status, blockers, decisions)
-                                  Thay: cat workflow-state.json + bash scripts/workflow.sh status
+                                  Thay: cat flowctl-state.json + bash scripts/flowctl.sh status
                                   Saving: ~1,900 → ~100 tokens (95%)
 
 wf_git(commits?)                — Git snapshot (branch, commits, changed files)
@@ -89,12 +89,12 @@ wf_cache_invalidate(scope?)     — Invalidate cache (all|git|state|files)
 
 **Cache tự động invalidate:**
 - Sau mỗi git commit → git cache reset (post-commit hook)
-- Sau mỗi workflow action → state cache reset (SessionStart hook)
+- Sau mỗi flowctl action → state cache reset (SessionStart hook)
 
 **Thứ tự ưu tiên khi cần thông tin:**
 ```
 1. wf_step_context()  ← tất cả trong 1 call
-2. wf_state()         ← nếu chỉ cần workflow state
+2. wf_state()         ← nếu chỉ cần flowctl state
 3. graphify_query()   ← nếu cần knowledge graph
 4. wf_git()           ← nếu cần git context
 5. wf_read()          ← nếu cần đọc file cụ thể
@@ -271,9 +271,9 @@ Tổng hợp test results → QA sign-off → Approval Gate
 
 ```
 CLAUDE.md                          ← File này — đọc đầu tiên
-workflow-state.json                ← Trạng thái hiện tại của workflow
+flowctl-state.json                ← Trạng thái hiện tại của flowctl
 setup.sh                           ← Cài đặt Graphify + GitNexus
-scripts/workflow.sh                ← CLI quản lý workflow
+scripts/flowctl.sh                ← CLI quản lý flowctl
 
 .cursor/
   mcp.json                         ← MCP server config (Graphify + GitNexus)
@@ -287,7 +287,7 @@ scripts/workflow.sh                ← CLI quản lý workflow
     qa-agent.md                    ← QA Agent
   rules/
     global-rules.md                ← Quy tắc cho tất cả agents
-    workflow-rules.md              ← Quy tắc workflow
+    flowctl-rules.md              ← Quy tắc flowctl
 
 workflows/
   steps/                           ← Step documents (tạo khi làm)
@@ -300,7 +300,7 @@ workflows/
   graph.json                       ← Knowledge graph data
 
 .claude/
-  mcp-workflow-state.js            ← Workflow state MCP server
+  mcp-flowctl-state.js            ← Workflow state MCP server
   settings.json                    ← Claude Code permissions
 ```
 
@@ -312,8 +312,8 @@ workflows/
 # Bước 1: Cài đặt tools
 bash setup.sh
 
-# Bước 2: Khởi tạo workflow
-bash scripts/workflow.sh init --project "Tên dự án"
+# Bước 2: Khởi tạo flowctl
+bash scripts/flowctl.sh init --project "Tên dự án"
 
 # Bước 3: Reload Cursor
 # Cmd/Ctrl+Shift+P → "Developer: Reload Window"

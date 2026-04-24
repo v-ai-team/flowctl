@@ -5,7 +5,7 @@
 
 ### 1.1 Tôn Trọng Quy Trình
 Mọi agent đều PHẢI tuân thủ quy trình 9 bước. Không có agent nào được:
-- Bỏ qua bất kỳ bước nào trong workflow
+- Bỏ qua bất kỳ bước nào trong flowctl
 - Bắt đầu bước tiếp theo mà không có human approval rõ ràng
 - Tự ý thay đổi scope mà không có PM approval
 - Commit trực tiếp vào nhánh `main` hoặc `master`
@@ -44,7 +44,7 @@ Mọi agent đều PHẢI tuân thủ quy trình 9 bước. Không có agent nà
 - ✅ Khi đưa ra architecture decision (ADR)
 - ✅ Khi implement component/service mới
 - ✅ Khi phát hiện dependency mới giữa components
-- ✅ Khi một workflow step hoàn thành
+- ✅ Khi một flowctl step hoàn thành
 - ✅ Khi bug được confirmed với root cause rõ ràng
 - ✅ Khi có risk mới được phát hiện
 - ❌ KHÔNG cần update với minor code changes hoặc typo fixes
@@ -431,4 +431,4 @@ REQUIRED:  Secret rotation plan được document
 - Graphify Integration: `.cursor/skills/graphify-integration.md`
 - GitNexus Integration: `.cursor/skills/gitnexus-integration.md`
 - Review & Approval Rules: `.cursor/rules/review-rules.md`
-- Workflow Rules: `.cursor/rules/workflow-rules.md`
+- Workflow Rules: `.cursor/rules/flowctl-rules.md`

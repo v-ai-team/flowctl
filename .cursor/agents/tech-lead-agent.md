@@ -96,7 +96,7 @@ graphify update "step:system-design" --status "completed"
 # Tạo branch cho architecture docs
 gitnexus branch create "docs/system-design-v{version}"
 
-# Code review workflow
+# Code review flowctl
 gitnexus review --pr "{pr-number}" --mode "comprehensive"
 gitnexus review --file "{path}" --focus "security,performance,maintainability"
 

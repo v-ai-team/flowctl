@@ -12,7 +12,7 @@ REPO      = Path(__file__).resolve().parent.parent.parent
 CACHE     = REPO / ".cache" / "mcp"
 EVENTS_F  = CACHE / "events.jsonl"
 STATS_F   = CACHE / "session-stats.json"
-STATE_F   = REPO / "workflow-state.json"
+STATE_F   = REPO / "flowctl-state.json"
 
 PRICE = {"input": 3.0, "output": 15.0}
 

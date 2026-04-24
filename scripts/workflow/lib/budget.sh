@@ -14,7 +14,7 @@ wf_budget_init_artifacts() {
     "probe_role": ""
   },
   "run": {
-    "workflow_id": "",
+    "flow_id": "",
     "run_id": "",
     "step": 0,
     "started_at": "",
@@ -35,7 +35,7 @@ JSON
 wf_budget_prelaunch_check() {
   local step="$1"
   local role="$2"
-  local workflow_id="$3"
+  local flow_id="$3"
   local run_id="$4"
   local max_retries="$5"
   local dry_run="${6:-false}"
@@ -45,7 +45,7 @@ wf_budget_prelaunch_check() {
   WF_BUDGET_EVENTS_FILE="$BUDGET_EVENTS_FILE" \
   WF_BUDGET_POLICY_FILE="$BUDGET_POLICY_FILE" \
   WF_STATE_FILE="$STATE_FILE" \
-  WF_STEP="$step" WF_ROLE="$role" WF_WORKFLOW_ID="$workflow_id" WF_RUN_ID="$run_id" \
+  WF_STEP="$step" WF_ROLE="$role" WF_FLOW_ID="$flow_id" WF_WORKFLOW_ID="$flow_id" WF_RUN_ID="$run_id" \
   WF_MAX_RETRIES="$max_retries" WF_BUDGET_DRY_RUN="$dry_run" WF_OVERRIDE_REASON="$override_reason" WF_CORRELATION_ID="$correlation_id" python3 - <<'PY'
 import json
 import os
@@ -66,10 +66,10 @@ def parse_iso(ts):
 state_path = Path(os.environ["WF_BUDGET_STATE_FILE"])
 events_path = Path(os.environ["WF_BUDGET_EVENTS_FILE"])
 policy_path = Path(os.environ["WF_BUDGET_POLICY_FILE"])
-workflow_state_path = Path(os.environ["WF_STATE_FILE"])
+flow_state_path = Path(os.environ["WF_STATE_FILE"])
 step = int(os.environ["WF_STEP"])
 role = os.environ["WF_ROLE"]
-workflow_id = os.environ["WF_WORKFLOW_ID"]
+flow_id = os.environ["WF_FLOW_ID"]
 run_id = os.environ["WF_RUN_ID"]
 max_retries = int(os.environ.get("WF_MAX_RETRIES", "3"))
 dry_run = os.environ.get("WF_BUDGET_DRY_RUN", "false").lower() == "true"
@@ -117,7 +117,7 @@ breaker.setdefault("last_transition_at", "")
 if run.get("run_id") != run_id or run.get("step") != step:
     run.update(
         {
-            "workflow_id": workflow_id,
+            "flow_id": flow_id,
             "run_id": run_id,
             "step": step,
             "started_at": now,
@@ -154,7 +154,7 @@ if breaker["state"] == "open" and opened_at_dt is not None and now_dt is not Non
             "type": "breaker_transition",
             "to_state": "half-open",
             "reason": "cooldown_elapsed",
-            "workflow_id": workflow_id,
+            "flow_id": flow_id,
             "run_id": run_id,
             "step": step,
             "correlation_id": correlation_id,
@@ -173,7 +173,7 @@ if breaker["state"] == "open":
         events.append({
             "timestamp": now,
             "type": "budget_override_used",
-            "workflow_id": workflow_id,
+            "flow_id": flow_id,
             "run_id": run_id,
             "step": step,
             "role": role,
@@ -214,7 +214,7 @@ if breaker["state"] == "half-open":
         events.append({
             "timestamp": now,
             "type": "probe_assigned",
-            "workflow_id": workflow_id,
+            "flow_id": flow_id,
             "run_id": run_id,
             "step": step,
             "role": role,
@@ -260,7 +260,7 @@ if breaches and override_reason and not override_used:
     events.append({
         "timestamp": now,
         "type": "budget_override_used",
-        "workflow_id": workflow_id,
+        "flow_id": flow_id,
         "run_id": run_id,
         "step": step,
         "role": role,
@@ -286,7 +286,7 @@ if breaches:
     events.append({
         "timestamp": now,
         "type": "breaker_opened",
-        "workflow_id": workflow_id,
+        "flow_id": flow_id,
         "run_id": run_id,
         "step": step,
         "role": role,
@@ -294,8 +294,8 @@ if breaches:
         "correlation_id": correlation_id,
     })
     if not dry_run:
-        if workflow_state_path.exists():
-            ws = json.loads(workflow_state_path.read_text(encoding="utf-8"))
+        if flow_state_path.exists():
+            ws = json.loads(flow_state_path.read_text(encoding="utf-8"))
             s = ws.get("steps", {}).get(str(step), {})
             s["status"] = "blocked"
             blockers = s.setdefault("blockers", [])
@@ -307,7 +307,7 @@ if breaches:
                 "source": "budget-guardrail",
             })
             ws["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            workflow_state_path.write_text(json.dumps(ws, indent=2, ensure_ascii=False), encoding="utf-8")
+            flow_state_path.write_text(json.dumps(ws, indent=2, ensure_ascii=False), encoding="utf-8")
         state_path.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
         with events_path.open("a", encoding="utf-8") as f:
             for ev in events:
@@ -354,7 +354,7 @@ for t in thresholds:
             "threshold": threshold,
             "value": projected_tokens,
             "max": max_tokens_total,
-            "workflow_id": workflow_id,
+            "flow_id": flow_id,
             "run_id": run_id,
             "step": step,
             "role": role,
@@ -415,7 +415,7 @@ if breaker.get("state") == "half-open" and breaker.get("probe_role") == role:
         "type": "breaker_transition",
         "to_state": "closed",
         "reason": "half_open_probe_succeeded",
-        "workflow_id": run.get("workflow_id", ""),
+        "flow_id": run.get("flow_id", ""),
         "run_id": run.get("run_id", ""),
         "step": step,
         "role": role,
@@ -463,7 +463,7 @@ with events_path.open("a", encoding="utf-8") as f:
         "type": "breaker_transition",
         "to_state": "closed",
         "reason": reason,
-        "workflow_id": run.get("workflow_id", ""),
+        "flow_id": run.get("flow_id", ""),
         "run_id": run.get("run_id", ""),
         "step": run.get("step", 0),
     }, ensure_ascii=False) + "\n")

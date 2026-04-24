@@ -18,13 +18,13 @@ WASTEFUL_PATTERNS = [
     (r"git\s+status",        "wf_git()",          180),
     (r"git\s+diff",          "wf_git()",          300),
     (r"git\s+branch",        "wf_git()",          100),
-    (r"cat\s+workflow-state","wf_state()",        480),
+    (r"cat\s+flowctl-state","wf_state()",        480),
     (r"cat\s+.*\.json",      "wf_read(path)",     300),
     (r"ls\s+-la?",           "wf_files()",        120),
     (r"find\s+\.",           "wf_files()",        200),
     (r"wc\s+-l",             "wf_read(path)",      80),
-    (r"python3.*workflow-state", "wf_state()",    480),
-    (r"bash\s+scripts/workflow\.sh\s+status", "wf_state()", 300),
+    (r"python3.*flowctl-state", "wf_state()",    480),
+    (r"bash\s+scripts/flowctl\.sh\s+status", "wf_state()", 300),
 ]
 
 def estimate_tokens(text: str) -> int:

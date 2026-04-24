@@ -612,7 +612,7 @@ Xem `.cursor/agents/devops-agent.md` và `workflows/steps/08-devops-deployment.m
 
 ## Contributing
 
-1. Đọc quy trình trong `workflows/it-product-workflow.md`
+1. Đọc quy trình trong `workflows/it-product-flowctl.md`
 2. Tạo branch theo convention: `gitnexus branch create "{description}"`
 3. Viết code và tests
 4. Submit PR và chờ review

@@ -7,12 +7,12 @@
       ],
       "description": "Token-efficient shell proxy — wf_state, wf_git, wf_step_context, wf_files, wf_read, wf_env. Replaces bash reads with structured cached JSON. Use BEFORE any bash command."
     },
-    "workflow-state": {
+    "flowctl-state": {
       "command": "node",
       "args": [
-        ".claude/mcp-workflow-state.js"
+        ".claude/mcp-flowctl-state.js"
       ],
-      "description": "Workflow state tracker — workflow_get_state, workflow_advance_step, workflow_request_approval, workflow_add_blocker, workflow_add_decision"
+      "description": "Workflow state tracker — flow_get_state, flow_advance_step, flow_request_approval, flow_add_blocker, flow_add_decision"
     }
   }
 }

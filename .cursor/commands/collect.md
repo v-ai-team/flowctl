@@ -8,7 +8,7 @@ Bạn là PM Agent. Tất cả worker agents đã hoàn thành. Hãy thu thập 
 
 **Bước 1 — Thu thập reports:**
 ```bash
-bash scripts/workflow.sh collect
+bash scripts/flowctl.sh collect
 ```
 
 **Bước 2 — Đọc từng report:**
@@ -47,7 +47,7 @@ Tạo summary theo format sau:
 
 **Bước 4 — Chạy QA gate check:**
 ```bash
-bash scripts/workflow.sh gate-check
+bash scripts/flowctl.sh gate-check
 ```
 
 **Bước 5 — Trình bày approval recommendation:**
@@ -61,7 +61,7 @@ Dựa trên summary và gate check, đưa ra recommendation:
 
 **Lý do**: [2-3 câu]
 
-**Nếu APPROVE**: Gõ `bash scripts/workflow.sh approve --by "PM"`
+**Nếu APPROVE**: Gõ `bash scripts/flowctl.sh approve --by "PM"`
 **Nếu CONDITIONAL**: [liệt kê items cần fix trong 48h]
 **Nếu REJECT**: [lý do cụ thể]
 ```
@@ -69,6 +69,6 @@ Dựa trên summary và gate check, đưa ra recommendation:
 **User quyết định cuối cùng.** PM không tự approve.
 
 ## Lưu ý:
-- Nếu có report bị thiếu → `bash scripts/workflow.sh team recover --role <role> --mode retry`
+- Nếu có report bị thiếu → `bash scripts/flowctl.sh team recover --role <role> --mode retry`
 - Nếu gate check fail → không recommend approve cho đến khi fix
-- Ghi lại tất cả quyết định quan trọng: `bash scripts/workflow.sh decision "nội dung"`
+- Ghi lại tất cả quyết định quan trọng: `bash scripts/flowctl.sh decision "nội dung"`

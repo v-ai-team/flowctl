@@ -151,7 +151,7 @@ lines = []
 lines.append("# Release Dashboard (PM Approval)")
 lines.append("")
 lines.append(f"- project: {state.get('project_name', '')}")
-lines.append(f"- workflow_id: {state.get('workflow_id', '')}")
+lines.append(f"- flow_id: {state.get('flow_id', '')}")
 lines.append(f"- step: {step} — {step_obj.get('name', '')}")
 lines.append(f"- step_status: {step_obj.get('status', 'pending')}")
 lines.append(f"- approval_status: {approval_status}")
@@ -202,7 +202,7 @@ cmd_reset() {
   local target="${1:-}"
   [[ -z "$target" ]] && { echo "Usage: reset <step_number>"; exit 1; }
 
-  echo -e "${RED}${BOLD}CẢNH BÁO: Reset workflow về Step $target.${NC}"
+  echo -e "${RED}${BOLD}CẢNH BÁO: Reset flowctl về Step $target.${NC}"
   echo -e "Tất cả progress từ Step $target trở đi sẽ bị xóa."
   echo -n "Xác nhận? (yes/no): "
   read -r confirm
