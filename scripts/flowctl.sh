@@ -5,7 +5,7 @@
 #
 # Usage:
 #   flowctl <command> [args]
-#   bash scripts/flowctl.sh <command> [args]   # backward-compatible
+#   flowctl <command> [args]
 #
 # Commands:
 #   init --project "Name"    Khởi tạo flowctl cho project mới

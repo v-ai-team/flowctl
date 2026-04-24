@@ -21,7 +21,7 @@ cmd_dispatch() {
       --budget-override-reason) budget_override_reason="${2:-}"; shift ;;
       *)
         echo -e "${RED}Unknown option for dispatch: $1${NC}"
-        echo -e "Usage: bash scripts/flowctl.sh dispatch [--launch|--headless] [--trust] [--dry-run] [--force-run] [--max-retries N] [--role name] [--budget-override-reason text]\n"
+        echo -e "Usage: flowctl dispatch [--launch|--headless] [--trust] [--dry-run] [--force-run] [--max-retries N] [--role name] [--budget-override-reason text]\n"
         exit 1
         ;;
     esac
@@ -233,7 +233,7 @@ graphify_update_node("step:{step}:{role}:done", {{
 ```
 
 **Quy tắc bắt buộc:**
-- KHÔNG gọi `bash scripts/flowctl.sh approve`
+- KHÔNG gọi `flowctl approve`
 - KHÔNG advance step — đây là quyền của PM
 - Nếu bị block → ghi BLOCKER + NEEDS_SPECIALIST, tiếp tục làm những gì có thể
 """
@@ -512,7 +512,7 @@ PY
     done < "$commands_file"
   fi
 
-  echo -e "Sau khi workers xong, chạy: ${BOLD}bash scripts/flowctl.sh collect${NC}\n"
+  echo -e "Sau khi workers xong, chạy: ${BOLD}flowctl collect${NC}\n"
 }
 
 cmd_collect() {
@@ -522,7 +522,7 @@ cmd_collect() {
   local reports_dir="$REPO_ROOT/workflows/dispatch/step-$step/reports"
   if [[ ! -d "$reports_dir" ]]; then
     echo -e "${YELLOW}Chưa có thư mục reports: ${reports_dir#$REPO_ROOT/}${NC}"
-    echo -e "Chạy ${BOLD}bash scripts/flowctl.sh dispatch${NC} trước.\n"
+    echo -e "Chạy ${BOLD}flowctl dispatch${NC} trước.\n"
     exit 1
   fi
 
@@ -682,7 +682,7 @@ PY
       [[ -n "$trace_result" ]] && echo -e "${CYAN}${trace_result}${NC}"
     fi
   done
-  echo -e "Kiểm tra nhanh: ${BOLD}bash scripts/flowctl.sh summary${NC}"
+  echo -e "Kiểm tra nhanh: ${BOLD}flowctl summary${NC}"
 
   # Scan for NEEDS_SPECIALIST requests → trigger Phase B if any
   local merc_requests
@@ -701,7 +701,7 @@ for r in json.load(sys.stdin):
     print(f'  @{r.get(\"requested_by\",\"?\")} needs: {r.get(\"type\",\"?\")} — {r.get(\"blocking\",\"?\")}')
 "
     echo ""
-    echo -e "  Chạy: ${BOLD}bash scripts/flowctl.sh mercenary spawn${NC}"
+    echo -e "  Chạy: ${BOLD}flowctl mercenary spawn${NC}"
     echo -e "  Sau đó re-spawn blocked workers với mercenary outputs injected."
   fi
   echo ""

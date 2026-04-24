@@ -2,7 +2,7 @@
   "permissions": {
     "allow": [
       "Bash(bash setup.sh*)",
-      "Bash(bash scripts/flowctl.sh*)",
+      "Bash(flowctl*)",
       "Bash(bash scripts/hooks/invalidate-cache.sh*)",
       "Bash(node scripts/setup-git-hooks.mjs*)",
       "Bash(python3 scripts/monitor.py*)",
@@ -13,8 +13,6 @@
       "Bash(npx gitnexus*)",
       "Bash(flowctl mcp --shell-proxy*)",
       "Bash(flowctl mcp --workflow-state*)",
-      "Bash(bash scripts/flowctl.sh mcp --shell-proxy*)",
-      "Bash(bash scripts/flowctl.sh mcp --workflow-state*)",
       "Bash(cat flowctl-state.json)",
       "Bash(python3 * flowctl-state.json*)",
       "Bash(chmod +x setup.sh)",
@@ -33,7 +31,7 @@
           },
           {
             "type": "command",
-            "command": "[ -f flowctl-state.json ] && python3 -c \"import json; d=json.load(open('flowctl-state.json')); s=d.get('current_step',0); name=d.get('steps',{}).get(str(s),{}).get('name','') if s else ''; agent=d.get('steps',{}).get(str(s),{}).get('agent','') if s else ''; status=d.get('overall_status','not_started'); blockers=len([b for b in d.get('steps',{}).get(str(s),{}).get('blockers',[]) if not b.get('resolved')]); print(json.dumps({'systemMessage': f'[Workflow] {d.get(\\\"project_name\\\",\\\"Chưa khởi tạo\\\")} | {status} | Step {s}: {name} | @{agent} | Blockers: {blockers} | Use wf_state() not cat | Monitor: bash scripts/flowctl.sh monitor'}))\" 2>/dev/null || true",
+            "command": "[ -f flowctl-state.json ] && python3 -c \"import json; d=json.load(open('flowctl-state.json')); s=d.get('current_step',0); name=d.get('steps',{}).get(str(s),{}).get('name','') if s else ''; agent=d.get('steps',{}).get(str(s),{}).get('agent','') if s else ''; status=d.get('overall_status','not_started'); blockers=len([b for b in d.get('steps',{}).get(str(s),{}).get('blockers',[]) if not b.get('resolved')]); print(json.dumps({'systemMessage': f'[Workflow] {d.get(\\\"project_name\\\",\\\"Chưa khởi tạo\\\")} | {status} | Step {s}: {name} | @{agent} | Blockers: {blockers} | Use wf_state() not cat | Monitor: flowctl monitor'}))\" 2>/dev/null || true",
             "statusMessage": "Loading flowctl state..."
           }
         ]

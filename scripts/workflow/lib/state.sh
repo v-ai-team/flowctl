@@ -72,7 +72,7 @@ wf_require_initialized_flow() {
   local step
   step=$(wf_json_get "current_step")
   if [[ -z "$step" || "$step" == "0" ]]; then
-    echo -e "${YELLOW}Workflow chưa được khởi tạo. Chạy: bash scripts/flowctl.sh init${NC}" >&2
+    echo -e "${YELLOW}Workflow chưa được khởi tạo. Chạy: flowctl init${NC}" >&2
     exit 1
   fi
   echo "$step"

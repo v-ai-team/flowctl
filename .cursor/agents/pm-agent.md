@@ -14,8 +14,8 @@ Khi user yêu cầu chạy flowctl step, PM thực hiện theo thứ tự sau **
 
 ### 1. Đọc state và tạo briefs
 ```bash
-bash scripts/flowctl.sh status
-bash scripts/flowctl.sh cursor-dispatch
+flowctl status
+flowctl cursor-dispatch
 ```
 
 ### 2. Spawn từng sub-agent song song bằng Task tool
@@ -35,8 +35,8 @@ Tất cả subagents chạy **song song** (`is_background: true`). PM chờ kế
 ### 3. Collect và tổng hợp
 Khi tất cả Task tool calls hoàn thành, PM:
 ```bash
-bash scripts/flowctl.sh collect
-bash scripts/flowctl.sh gate-check
+flowctl collect
+flowctl gate-check
 ```
 
 ### 4. Trình bày approval request cho user

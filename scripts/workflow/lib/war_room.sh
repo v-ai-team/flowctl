@@ -35,7 +35,7 @@ cmd_war_room() {
   _war_room_spawn_board "$step" "$step_name" "$wr_dir"
 
   echo -e "${YELLOW}${BOLD}⏸  Sau khi PM + TechLead hoàn thành War Room:${NC}"
-  echo -e "  Chạy: ${BOLD}bash scripts/flowctl.sh war-room merge${NC}"
+  echo -e "  Chạy: ${BOLD}flowctl war-room merge${NC}"
   echo -e "  Để merge outputs → context-digest.md → sẵn sàng dispatch full team\n"
 }
 

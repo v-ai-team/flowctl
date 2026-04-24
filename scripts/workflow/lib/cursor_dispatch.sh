@@ -24,7 +24,7 @@ cmd_cursor_dispatch() {
   # Phase 0: War Room (auto-gated by complexity)
   if [[ "$merge_only" == "true" ]]; then
     cmd_war_room merge
-    echo -e "${CYAN}→ War Room merged. Tiếp tục chạy: ${BOLD}bash scripts/flowctl.sh cursor-dispatch${NC}\n"
+    echo -e "${CYAN}→ War Room merged. Tiếp tục chạy: ${BOLD}flowctl cursor-dispatch${NC}\n"
     return 0
   fi
 
@@ -35,8 +35,8 @@ cmd_cursor_dispatch() {
       echo -e "${MAGENTA}${BOLD}[cursor-dispatch]${NC} Complexity=$score/5 → War Room trước khi dispatch team\n"
       cmd_war_room
       echo -e "${YELLOW}⏸  Chờ War Room hoàn thành, sau đó:${NC}"
-      echo -e "  ${BOLD}bash scripts/flowctl.sh cursor-dispatch --merge${NC} (merge war room outputs)"
-      echo -e "  ${BOLD}bash scripts/flowctl.sh cursor-dispatch --skip-war-room${NC} (bỏ qua, dispatch thẳng)\n"
+      echo -e "  ${BOLD}flowctl cursor-dispatch --merge${NC} (merge war room outputs)"
+      echo -e "  ${BOLD}flowctl cursor-dispatch --skip-war-room${NC} (bỏ qua, dispatch thẳng)\n"
       return 0
     else
       echo -e "${GREEN}[cursor-dispatch]${NC} Complexity=$score/5 (low) → Skip War Room, dispatch ngay\n"
@@ -151,7 +151,7 @@ for role in roles:
 
   # ── Collect instructions ──
   echo -e "${MAGENTA}${BOLD}━━━ Khi tất cả agents hoàn thành: ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-  echo -e "  ${BOLD}bash scripts/flowctl.sh collect${NC}"
+  echo -e "  ${BOLD}flowctl collect${NC}"
   echo -e "  (collect sẽ tự phát hiện NEEDS_SPECIALIST → Phase B nếu cần)"
   echo ""
 

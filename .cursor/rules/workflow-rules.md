@@ -247,13 +247,13 @@ Khi có urgency hợp lý:
 
 ### 5.5 PM Pre-Approval Checklist (Bắt buộc)
 Trước khi chạy `approve`, PM hoặc lead agent PHẢI kiểm tra theo thứ tự:
-1. `bash scripts/flowctl.sh release-dashboard --no-write`
+1. `flowctl release-dashboard --no-write`
    - `approval_ready: yes`
    - `breaker_state: closed`
-2. `bash scripts/flowctl.sh gate-check`
+2. `flowctl gate-check`
    - Gate phải PASS (không dùng bypass trừ khi có quyết định rõ ràng)
 3. Chỉ khi 1 và 2 đều đạt mới được:
-   - `bash scripts/flowctl.sh approve --by "Approver Name"`
+   - `flowctl approve --by "Approver Name"`
 
 ## 6. Parallel Execution Rules
 

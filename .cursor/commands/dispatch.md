@@ -8,12 +8,12 @@ Bạn là PM Agent đang điều phối step hiện tại của flowctl.
 
 **Bước 1 — Đọc trạng thái flowctl:**
 ```bash
-bash scripts/flowctl.sh status
+flowctl status
 ```
 
 **Bước 2 — Generate briefs + Spawn Board:**
 ```bash
-bash scripts/flowctl.sh cursor-dispatch
+flowctl cursor-dispatch
 ```
 
 **Bước 3 — Trình bày Spawn Board cho user.**
@@ -34,11 +34,11 @@ Sau khi có output từ Bước 2, giải thích rõ cho user:
 
 Sau khi tất cả agents hoàn thành, PM chạy:
 ```bash
-bash scripts/flowctl.sh collect
+flowctl collect
 ```
 hoặc gõ `/collect` trong cửa sổ PM này.
 
 ## Lưu ý:
 - Đừng approve step cho đến khi `/collect` cho thấy tất cả reports đã có
-- Nếu một agent bị stale > 5 phút, chạy: `bash scripts/flowctl.sh team recover --role <role> --mode resume`
+- Nếu một agent bị stale > 5 phút, chạy: `flowctl team recover --role <role> --mode resume`
 - PM là người duy nhất có quyền approve/reject step

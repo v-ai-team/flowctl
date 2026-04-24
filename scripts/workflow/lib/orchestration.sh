@@ -59,7 +59,7 @@ cmd_team() {
             ;;
           *)
             echo -e "${RED}Unknown option for team monitor: $1${NC}"
-            echo -e "Usage: bash scripts/flowctl.sh team monitor [--stale-seconds N] [--retry-delay-seconds N]\n"
+            echo -e "Usage: flowctl team monitor [--stale-seconds N] [--retry-delay-seconds N]\n"
             exit 1
             ;;
         esac
@@ -306,7 +306,7 @@ PY
             ;;
           *)
             echo -e "${RED}Unknown option for team recover: $1${NC}"
-            echo -e "Usage: bash scripts/flowctl.sh team recover --role <name> [--mode resume|retry|rollback] [--dry-run]\n"
+            echo -e "Usage: flowctl team recover --role <name> [--mode resume|retry|rollback] [--dry-run]\n"
             exit 1
             ;;
         esac
@@ -351,7 +351,7 @@ data[key] = entry
 path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 PY
         echo -e "${GREEN}Rollback completed for @${role}.${NC}"
-        echo -e "Next: ${BOLD}bash scripts/flowctl.sh team recover --role ${role} --mode retry${NC}\n"
+        echo -e "Next: ${BOLD}flowctl team recover --role ${role} --mode retry${NC}\n"
         exit 0
       fi
       local dispatch_args=(--headless --force-run --role "$role")
@@ -368,7 +368,7 @@ PY
             ;;
           *)
             echo -e "${RED}Unknown option for team budget-reset: $1${NC}"
-            echo -e "Usage: bash scripts/flowctl.sh team budget-reset [--reason \"text\"]\n"
+            echo -e "Usage: flowctl team budget-reset [--reason \"text\"]\n"
             exit 1
             ;;
         esac
@@ -389,11 +389,11 @@ PY
       fi
       cmd_dispatch --headless "$@"
       echo -e "${YELLOW}Workers đang chạy nền. Sau khi đủ thời gian xử lý, chạy:${NC}"
-      echo -e "  ${BOLD}bash scripts/flowctl.sh team sync${NC}\n"
+      echo -e "  ${BOLD}flowctl team sync${NC}\n"
       ;;
     *)
       echo -e "${RED}Unknown team action: $action${NC}"
-      echo -e "Usage: bash scripts/flowctl.sh team <start|delegate|sync|status|monitor|recover|budget-reset|run>\n"
+      echo -e "Usage: flowctl team <start|delegate|sync|status|monitor|recover|budget-reset|run>\n"
       exit 1
       ;;
   esac

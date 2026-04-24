@@ -26,7 +26,7 @@ Build a step-based agent orchestration flow where:
 - [x] Enforce step-based role delegation (`team delegate`)
 - [x] Remove forced `--trust` in delegate path to avoid permission failures
 - [x] Add QA gate policy file: `workflows/gates/qa-gate.v1.json`
-- [x] Add explicit gate check command: `bash scripts/flowctl.sh gate-check`
+- [x] Add explicit gate check command: `flowctl gate-check`
 - [x] Block `approve` when gate fails (default fail-closed)
 - [x] Keep controlled bypass: `approve --skip-gate --by "..."`
 - [x] Fix argument parsing bugs in:
@@ -69,34 +69,34 @@ Build a step-based agent orchestration flow where:
 ### Core
 
 - Start or continue orchestration:
-  - `bash scripts/flowctl.sh brainstorm "<topic>"`
+  - `flowctl brainstorm "<topic>"`
 - Delegate current step roles:
-  - `bash scripts/flowctl.sh team delegate`
+  - `flowctl team delegate`
 - Collect worker reports:
-  - `bash scripts/flowctl.sh collect`
+  - `flowctl collect`
 - Monitor role runtime state:
-  - `bash scripts/flowctl.sh team monitor --stale-seconds 300`
+  - `flowctl team monitor --stale-seconds 300`
 - Recover failed role safely:
-  - `bash scripts/flowctl.sh team recover --role <role> --mode resume|retry|rollback --dry-run`
+  - `flowctl team recover --role <role> --mode resume|retry|rollback --dry-run`
 - Check gate:
-  - `bash scripts/flowctl.sh gate-check`
+  - `flowctl gate-check`
 - Approve step (when gate passes):
-  - `bash scripts/flowctl.sh approve --by "Your Name"`
+  - `flowctl approve --by "Your Name"`
 - PM release dashboard before approval:
-  - `bash scripts/flowctl.sh release-dashboard`
+  - `flowctl release-dashboard`
 
 ### Safety
 
 - Dry run delegate:
-  - `bash scripts/flowctl.sh team delegate --dry-run`
+  - `flowctl team delegate --dry-run`
 - Controlled bypass (exception only):
-  - `bash scripts/flowctl.sh approve --skip-gate --by "Your Name"`
+  - `flowctl approve --skip-gate --by "Your Name"`
 - Run TDD regression suite before major refactor:
   - `bash scripts/test-flowctl-tdd-regression.sh`
 - Run chaos reliability suite for orchestration failure modes:
   - `bash scripts/test-flowctl-chaos.sh`
 - Manual breaker recovery path:
-  - `bash scripts/flowctl.sh team budget-reset --reason "manual recovery"`
+  - `flowctl team budget-reset --reason "manual recovery"`
 - Update role policy guardrails:
   - `workflows/policies/role-policy.v1.json`
 

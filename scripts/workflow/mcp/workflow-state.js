@@ -15,10 +15,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = resolve(dirname(__filename), '..');
 const STATE_FILE = join(REPO_ROOT, 'flowctl-state.json');
-const FLOW_SCRIPT = join(REPO_ROOT, 'scripts', 'flowctl.sh');
-
 function runWorkflowCommand(args) {
-  const out = execFileSync('bash', [FLOW_SCRIPT, ...args.map((arg) => String(arg))], {
+  const out = execFileSync('flowctl', args.map((arg) => String(arg)), {
     cwd: REPO_ROOT,
     stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
@@ -28,7 +26,7 @@ function runWorkflowCommand(args) {
 
 function readWorkflowState() {
   if (!existsSync(STATE_FILE)) {
-    return { error: 'flowctl-state.json not found. Run `bash scripts/flowctl.sh init --project "Name"` first.' };
+    return { error: 'flowctl-state.json not found. Run `flowctl init --project "Name"` first.' };
   }
   return JSON.parse(readFileSync(STATE_FILE, 'utf8'));
 }
