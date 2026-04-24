@@ -300,8 +300,11 @@ workflows/
   graph.json                       ← Knowledge graph data
 
 .claude/
-  mcp-flowctl-state.js            ← Workflow state MCP server
   settings.json                    ← Claude Code permissions
+
+scripts/workflow/mcp/
+  shell-proxy.js                   ← Shell Proxy MCP server
+  workflow-state.js                ← Workflow State MCP server
 ```
 
 ---

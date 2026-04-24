@@ -1,16 +1,18 @@
 {
   "mcpServers": {
     "shell-proxy": {
-      "command": "node",
+      "command": "flowctl",
       "args": [
-        ".claude/mcp-shell-proxy.js"
+        "mcp",
+        "--shell-proxy"
       ],
       "description": "Token-efficient shell proxy — wf_state, wf_git, wf_step_context, wf_files, wf_read, wf_env. Replaces bash reads with structured cached JSON. Use BEFORE any bash command."
     },
     "flowctl-state": {
-      "command": "node",
+      "command": "flowctl",
       "args": [
-        ".claude/mcp-flowctl-state.js"
+        "mcp",
+        "--workflow-state"
       ],
       "description": "Workflow state tracker — flow_get_state, flow_advance_step, flow_request_approval, flow_add_blocker, flow_add_decision"
     }

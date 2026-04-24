@@ -123,9 +123,14 @@ configure_cursor_mcp() {
       "description": "Code intelligence engine — 16 MCP tools, git diff awareness"
     },
     "flowctl-state": {
-      "command": "node",
-      "args": [".claude/mcp-flowctl-state.js"],
+      "command": "flowctl",
+      "args": ["mcp", "--workflow-state"],
       "description": "Workflow state tracker — current step, approvals, blockers"
+    },
+    "shell-proxy": {
+      "command": "flowctl",
+      "args": ["mcp", "--shell-proxy"],
+      "description": "Token-efficient shell proxy — wf_state, wf_git, wf_step_context, wf_files, wf_read, wf_env"
     }
   }
 }
