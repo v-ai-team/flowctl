@@ -4,7 +4,7 @@
   "project_name": "",
   "project_description": "",
   "created_at": "",
-  "updated_at": "2026-04-24 08:48:46",
+  "updated_at": "2026-04-24 09:37:34",
   "current_step": 1,
   "overall_status": "not_started",
   "steps": {
@@ -21,9 +21,64 @@
       "approved_by": null,
       "approval_status": null,
       "graphify_snapshot": null,
-      "deliverables": [],
-      "blockers": [],
-      "decisions": [],
+      "deliverables": [
+        "workflows/dispatch/step-1/reports/pm-report.md — Worker report",
+        "docs/requirements.md",
+        "workflows/dispatch/step-1/reports/tech-lead-report.md — Worker report",
+        "docs/architecture.md",
+        ".github/workflows/ci-tdd.yml",
+        ".husky/pre-push",
+        "scripts/hooks/prevent-main-push.sh",
+        "package.json"
+      ],
+      "blockers": [
+        {
+          "id": "B20260424093654163896",
+          "description": "Need confidence threshold from tech-lead.",
+          "created_at": "2026-04-24 09:36:54",
+          "resolved": true,
+          "source": "workflows/dispatch/step-1/reports/pm-report.md",
+          "resolved_at": "2026-04-24 09:37:41"
+        }
+      ],
+      "decisions": [
+        {
+          "id": "D20260424093654163579",
+          "description": "Keep PM gateway model.",
+          "date": "2026-04-24",
+          "source": "workflows/dispatch/step-1/reports/pm-report.md"
+        },
+        {
+          "id": "D20260424093654164249",
+          "description": "Use depth limit=3 for delegation.",
+          "date": "2026-04-24",
+          "source": "workflows/dispatch/step-1/reports/tech-lead-report.md"
+        },
+        {
+          "id": "D20260424093714367474",
+          "description": "CI bắt buộc chạy ở pull_request/merge_group để gate merge queue.",
+          "date": "2026-04-24",
+          "source": "workflows/dispatch/step-1/reports/pm-report.md"
+        },
+        {
+          "id": "D20260424093714367864",
+          "description": "Chặn push trực tiếp main/master bằng local hook script.",
+          "date": "2026-04-24",
+          "source": "workflows/dispatch/step-1/reports/pm-report.md"
+        },
+        {
+          "id": "D20260424093714368256",
+          "description": "Chuẩn hóa script test:tdd làm cổng chung cho local hook và CI.",
+          "date": "2026-04-24",
+          "source": "workflows/dispatch/step-1/reports/tech-lead-report.md"
+        },
+        {
+          "id": "D20260424093714368578",
+          "description": "Husky pre-push gọi script bảo vệ branch trước khi chạy test.",
+          "date": "2026-04-24",
+          "source": "workflows/dispatch/step-1/reports/tech-lead-report.md"
+        }
+      ],
       "notes": ""
     },
     "2": {
@@ -189,8 +244,8 @@
     "total_changes_tracked": 0
   },
   "metrics": {
-    "total_blockers": 0,
-    "total_decisions": 0,
+    "total_blockers": 1,
+    "total_decisions": 6,
     "steps_completed": 0,
     "on_schedule": true
   },
