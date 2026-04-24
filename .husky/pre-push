@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+set -eu
+
+bash scripts/hooks/prevent-main-push.sh
+npm run test:tdd

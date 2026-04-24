@@ -9,9 +9,17 @@
   },
   "scripts": {
     "setup-hooks": "node scripts/setup-git-hooks.mjs",
-    "flowctl": "flowctl"
+    "flowctl": "flowctl",
+    "test": "bash scripts/test-workflow-tdd-regression.sh",
+    "test:tdd": "bash scripts/test-workflow-tdd-regression.sh",
+    "test:e2e": "bash scripts/test-workflow-e2e.sh",
+    "test:ci": "npm run test:tdd",
+    "prepare": "husky"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
   }
 }
